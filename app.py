@@ -1,124 +1,60 @@
 import streamlit as st
-import json
 
-from streamlit_javascript import st_javascript
 from utils.auth import verify_user
 
-st.set_page_config(layout="wide")
 
-# ----------------------------------
-# sessionStorage 복원
-# ----------------------------------
+st.set_page_config(
+    page_title="사무실 CRM",
+    layout="wide"
+)
+
+
+def hide_sidebar_before_login():
+    st.markdown(
+        """
+        <style>
+        [data-testid="stSidebar"] {
+            display: none;
+        }
+        [data-testid="stSidebarNav"] {
+            display: none;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
 
 if "user" not in st.session_state:
-
     st.session_state.user = None
 
-    try:
 
-        saved_user = st_javascript(
-            "sessionStorage.getItem('crm_user');"
-        )
+def login_page():
+    hide_sidebar_before_login()
 
-        if saved_user:
+    st.title("사무실 CRM 로그인")
 
-            st.session_state.user = json.loads(
-                saved_user
-            )
+    with st.form("login_form"):
+        username = st.text_input("아이디")
+        password = st.text_input("비밀번호", type="password")
 
-    except:
-        pass
+        submitted = st.form_submit_button("로그인")
 
-# ----------------------------------
-# 로그인 상태
-# ----------------------------------
+        if submitted:
+            user = verify_user(username, password)
 
-st.write("SESSION")
-st.write(st.session_state.get("user"))
+            if user:
+                st.session_state.user = user
+                st.switch_page("pages/1_메인.py")
+            else:
+                st.error("아이디 또는 비밀번호가 틀렸습니다.")
 
-try:
 
-    st.write("BROWSER")
+def main():
+    if st.session_state.user is None:
+        login_page()
+    else:
+        st.switch_page("pages/1_메인.py")
 
-    st.write(
-        st_javascript(
-            "sessionStorage.getItem('crm_user');"
-        )
-    )
 
-except Exception as e:
-
-    st.write(e)
-
-# ----------------------------------
-# 로그인 완료
-# ----------------------------------
-
-if st.session_state.user:
-
-    st.success(
-        f"{st.session_state.user['name']} 로그인 유지중"
-    )
-
-    if st.button("로그아웃"):
-
-        st_javascript(
-            """
-            sessionStorage.removeItem(
-                'crm_user'
-            );
-            """
-        )
-
-        st.session_state.user = None
-
-        st.rerun()
-
-    st.stop()
-
-# ----------------------------------
-# 로그인 화면
-# ----------------------------------
-
-st.title("LOGIN TEST")
-
-with st.form("login"):
-
-    username = st.text_input("아이디")
-
-    password = st.text_input(
-        "비밀번호",
-        type="password"
-    )
-
-    submit = st.form_submit_button(
-        "로그인"
-    )
-
-    if submit:
-
-        user = verify_user(
-            username,
-            password
-        )
-
-        if user:
-
-            st.session_state.user = user
-
-            st_javascript(
-                f"""
-                sessionStorage.setItem(
-                    'crm_user',
-                    '{json.dumps(user)}'
-                );
-                """
-            )
-
-            st.rerun()
-
-        else:
-
-            st.error(
-                "로그인 실패"
-            )
+main()

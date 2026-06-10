@@ -1,13 +1,22 @@
 import streamlit as st
 
-st.set_page_config(layout="wide")
+from utils.page_common import require_login, render_sidebar
+from views.home import home_page
 
-st.title("MAIN TEST")
 
-st.write("SESSION STATE")
+st.set_page_config(
+    page_title="메인",
+    layout="wide"
+)
 
-st.write(st.session_state)
 
-if st.button("새로고침 테스트"):
+def page():
+    require_login()
+    render_sidebar()
 
-    st.rerun()
+    user = st.session_state.user
+
+    home_page(user)
+
+
+page()
