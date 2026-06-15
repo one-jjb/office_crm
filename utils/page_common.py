@@ -1,7 +1,4 @@
 import streamlit as st
-from streamlit_local_storage import LocalStorage
-
-localS = LocalStorage()
 
 
 def hide_default_streamlit_nav():
@@ -18,12 +15,16 @@ def hide_default_streamlit_nav():
 
 
 def require_login():
-    if "user" not in st.session_state or st.session_state.user is None:
+    auth_status = st.session_state.get("authentication_status")
+
+    if auth_status is not True or st.session_state.get("user") is None:
         st.warning("로그인이 필요합니다.")
         st.switch_page("app.py")
 
 
 def require_admin():
+    require_login()
+
     user = st.session_state.user
 
     if user["role"] != "admin":
@@ -45,23 +46,17 @@ def render_sidebar():
     st.sidebar.page_link("pages/2_고객등록.py", label="고객 등록")
     st.sidebar.page_link("pages/3_고객리스트.py", label="고객 리스트")
     st.sidebar.page_link("pages/4_상담이력.py", label="상담 이력")
-    st.sidebar.page_link("pages/5_PDF변환.py", label="PDF 변환")
-    st.sidebar.page_link("pages/6_엑셀분석.py", label="엑셀 분석")
-    st.sidebar.page_link("pages/8_보장분석표생성.py", label="보장분석표 생성")
 
     if user["role"] == "admin":
         st.sidebar.divider()
         st.sidebar.page_link("pages/7_직원관리.py", label="직원 관리")
-        st.sidebar.page_link("pages/9_매핑저장소관리.py", label="매핑 저장소 관리")
 
     st.sidebar.divider()
 
-    if st.sidebar.button("로그아웃", width="stretch"):
-
-        try:
-            localS.deleteItem("crm_user")
-        except:
-            pass
-
-        st.session_state.user = None
-        st.switch_page("app.py")
+    if "authenticator" in st.session_state:
+        st.session_state.authenticator.logout("로그아웃", "sidebar")
+    else:
+        if st.sidebar.button("로그아웃", width="stretch"):
+            st.session_state.user = None
+            st.session_state.authentication_status = None
+            st.switch_page("app.py")

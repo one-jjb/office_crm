@@ -31,3 +31,4 @@ tabula-py==2.10.0
 tqdm==4.67.1
 tzdata==2025.3
 wrapt==2.0.1
+streamlit-authenticator

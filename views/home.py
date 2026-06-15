@@ -131,15 +131,3 @@ def home_page(user):
             use_container_width=True
         ):
             st.switch_page("pages/4_상담이력.py")
-
-        if st.button(
-            "PDF 변환",
-            use_container_width=True
-        ):
-            st.switch_page("pages/5_PDF변환.py")
-
-        if st.button(
-            "보장분석표 생성",
-            use_container_width=True
-        ):
-            st.switch_page("pages/8_보장분석표생성.py")

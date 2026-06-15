@@ -1,3 +1,5 @@
+import sqlite3
+
 import streamlit as st
 import pandas as pd
 
@@ -78,6 +80,12 @@ def user_manage_page():
                     )
 
                     st.rerun()
+
+                except sqlite3.IntegrityError:
+
+                    st.error(
+                        "이미 존재하는 아이디입니다."
+                    )
 
                 except Exception as e:
 
