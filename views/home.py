@@ -488,374 +488,192 @@ def _render_upcoming_board(customer_actions, general_schedules):
     )
 
 
-def _build_calendar_event_html(customer_actions, general_schedules):
-    event_html_list = []
+def _render_calendar_event_chip(event_type, title, desc=""):
+    safe_type = _safe_html(event_type)
+    safe_title = _safe_html(title)
+    safe_desc = _safe_html(desc, "")
 
-    for action in customer_actions[:2]:
-        customer_name = _safe_html(action.get("customer_name"))
-        next_action = _safe_html(action.get("next_action"), "상담 예정")
+    if event_type == "고객":
+        bg = "rgba(59, 130, 246, 0.16)"
+        border = "rgba(96, 165, 250, 0.30)"
+    else:
+        bg = "rgba(34, 197, 94, 0.15)"
+        border = "rgba(74, 222, 128, 0.28)"
 
-        event_html_list.append(
-            f"""
-            <div class="calendar-table-event calendar-table-customer">
-                <div class="calendar-table-type">고객</div>
-                <div class="calendar-table-event-name">{customer_name}</div>
-                <div class="calendar-table-event-desc">{next_action}</div>
-            </div>
-            """
+    desc_html = ""
+
+    if safe_desc:
+        desc_html = (
+            f'<div style="color:#CBD5E1;font-size:10px;'
+            f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
+            f'{safe_desc}</div>'
         )
 
-    for schedule in general_schedules[:2]:
-        title = _safe_html(schedule.get("title"), "일반일정")
+    st.markdown(
+        (
+            f'<div style="background:{bg};border:1px solid {border};'
+            f'border-radius:12px;padding:5px 7px;margin-top:5px;">'
+            f'<div style="display:inline-block;color:#F8FAFC;'
+            f'background:rgba(255,255,255,0.13);border-radius:999px;'
+            f'padding:2px 6px;font-size:9px;font-weight:900;margin-bottom:2px;">'
+            f'{safe_type}</div>'
+            f'<div style="color:#F8FAFC;font-size:11px;font-weight:800;'
+            f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
+            f'{safe_title}</div>'
+            f'{desc_html}'
+            f'</div>'
+        ),
+        unsafe_allow_html=True,
+    )
 
-        event_html_list.append(
-            f"""
-            <div class="calendar-table-event calendar-table-general">
-                <div class="calendar-table-type">일반</div>
-                <div class="calendar-table-event-name">{title}</div>
-            </div>
-            """
+
+def _render_calendar_day_cell(
+    year,
+    month,
+    day,
+    selected_date,
+    today,
+    customer_grouped,
+    general_grouped,
+):
+    current_date = date(year, month, day)
+
+    day_customer_actions = customer_grouped.get(day, [])
+    day_general_schedules = general_grouped.get(day, [])
+
+    is_selected = selected_date == current_date
+    is_today = today == current_date
+
+    label_parts = [f"{day}"]
+
+    if is_today:
+        label_parts.append("오늘")
+
+    if is_selected:
+        label_parts.append("선택")
+
+    count_parts = []
+
+    if day_customer_actions:
+        count_parts.append(f"고객 {len(day_customer_actions)}")
+
+    if day_general_schedules:
+        count_parts.append(f"일반 {len(day_general_schedules)}")
+
+    if count_parts:
+        label_parts.append(" / ".join(count_parts))
+
+    button_label = " · ".join(label_parts)
+
+    if st.button(
+        button_label,
+        key=f"calendar_native_day_{year}_{month}_{day}",
+        use_container_width=True,
+    ):
+        _set_selected_date(current_date)
+        st.rerun()
+
+    for action in day_customer_actions[:2]:
+        _render_calendar_event_chip(
+            "고객",
+            action.get("customer_name"),
+            action.get("next_action"),
         )
 
-    total_count = len(customer_actions) + len(general_schedules)
-    shown_count = min(len(customer_actions), 2) + min(len(general_schedules), 2)
+    for schedule in day_general_schedules[:2]:
+        _render_calendar_event_chip(
+            "일반",
+            schedule.get("title"),
+            "",
+        )
+
+    total_count = len(day_customer_actions) + len(day_general_schedules)
+    shown_count = min(len(day_customer_actions), 2) + min(len(day_general_schedules), 2)
 
     if total_count > shown_count:
-        event_html_list.append(
-            f"""
-            <div class="calendar-table-more">
-                +{total_count - shown_count}건 더 있음
-            </div>
-            """
-        )
-
-    return "".join(event_html_list)
+        st.caption(f"+{total_count - shown_count}건 더 있음")
 
 
-def _build_calendar_html(year, month, customer_actions, general_schedules, selected_date):
+def _render_calendar(year, month, customer_actions, general_schedules):
     customer_grouped = _group_customer_actions_by_day(customer_actions)
     general_grouped = _group_general_schedules_by_day(general_schedules)
 
+    selected_date = _get_selected_date()
     today = date.today()
 
     cal = calendar.Calendar(firstweekday=6)
     weeks = cal.monthdayscalendar(year, month)
 
-    weekday_names = ["일", "월", "화", "수", "목", "금", "토"]
-
-    header_cells = ""
-
-    for weekday in weekday_names:
-        header_cells += f"""
-        <th class="calendar-table-weekday">{weekday}</th>
+    st.markdown(
         """
+        <div style="
+            background: rgba(15, 23, 42, 0.62);
+            border: 1px solid rgba(255,255,255,0.10);
+            border-radius: 24px;
+            padding: 18px;
+            box-shadow: 0 18px 60px rgba(0,0,0,0.22);
+        ">
+        """,
+        unsafe_allow_html=True,
+    )
 
-    body_rows = ""
+    weekday_cols = st.columns(7)
 
-    for week in weeks:
-        body_rows += "<tr>"
+    weekdays = ["일", "월", "화", "수", "목", "금", "토"]
 
-        for day in week:
-            if day == 0:
-                body_rows += """
-                <td class="calendar-table-cell calendar-table-empty"></td>
-                """
-                continue
-
-            current_date = date(year, month, day)
-            current_date_text = current_date.isoformat()
-
-            day_customer_actions = customer_grouped.get(day, [])
-            day_general_schedules = general_grouped.get(day, [])
-
-            event_html = _build_calendar_event_html(
-                day_customer_actions,
-                day_general_schedules,
+    for index, weekday in enumerate(weekdays):
+        with weekday_cols[index]:
+            st.markdown(
+                f"""
+                <div style="
+                    color:#CBD5E1;
+                    font-size:13px;
+                    font-weight:850;
+                    text-align:center;
+                    padding:8px 0 10px 0;
+                ">
+                    {weekday}
+                </div>
+                """,
+                unsafe_allow_html=True,
             )
 
-            today_class = ""
-            selected_class = ""
+    for week_index, week in enumerate(weeks):
+        cols = st.columns(7)
 
-            if today == current_date:
-                today_class = " calendar-table-today"
+        for day_index, day in enumerate(week):
+            with cols[day_index]:
+                if day == 0:
+                    st.markdown(
+                        """
+                        <div style="
+                            min-height:122px;
+                            border-radius:18px;
+                            background:rgba(255,255,255,0.025);
+                            opacity:0.25;
+                            margin-bottom:10px;
+                        "></div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+                    continue
 
-            if selected_date == current_date:
-                selected_class = " calendar-table-selected"
+                with st.container(border=True):
+                    _render_calendar_day_cell(
+                        year,
+                        month,
+                        day,
+                        selected_date,
+                        today,
+                        customer_grouped,
+                        general_grouped,
+                    )
 
-            customer_count = len(day_customer_actions)
-            general_count = len(day_general_schedules)
-
-            count_html = ""
-
-            if customer_count or general_count:
-                count_parts = []
-
-                if customer_count:
-                    count_parts.append(f"고객 {customer_count}")
-
-                if general_count:
-                    count_parts.append(f"일반 {general_count}")
-
-                count_html = f"""
-                <span class="calendar-table-count">{" / ".join(count_parts)}</span>
-                """
-
-            body_rows += f"""
-            <td class="calendar-table-cell{today_class}{selected_class}">
-                <button
-                    type="button"
-                    class="calendar-table-link"
-                    onclick="selectCalendarDate('{current_date_text}')"
-                    title="{current_date_text}"
-                >
-                    <div class="calendar-table-day-head">
-                        <span class="calendar-table-day-number">{day}</span>
-                        {count_html}
-                    </div>
-                    <div class="calendar-table-events">
-                        {event_html}
-                    </div>
-                </button>
-            </td>
-            """
-
-        body_rows += "</tr>"
-
-    return f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            * {{
-                box-sizing: border-box;
-            }}
-
-            body {{
-                margin: 0;
-                padding: 0;
-                background: transparent;
-                font-family:
-                    -apple-system,
-                    BlinkMacSystemFont,
-                    "Segoe UI",
-                    sans-serif;
-            }}
-
-            .calendar-table-wrap {{
-                width: 100%;
-                padding: 18px;
-                background: rgba(15, 23, 42, 0.62);
-                border: 1px solid rgba(255, 255, 255, 0.10);
-                border-radius: 24px;
-                box-shadow: 0 18px 60px rgba(0, 0, 0, 0.22);
-                overflow: hidden;
-            }}
-
-            .calendar-table {{
-                width: 100%;
-                border-collapse: separate;
-                border-spacing: 10px;
-                table-layout: fixed;
-            }}
-
-            .calendar-table-weekday {{
-                color: #CBD5E1;
-                font-size: 13px;
-                font-weight: 850;
-                text-align: center;
-                padding: 8px 0 10px 0;
-            }}
-
-            .calendar-table-cell {{
-                height: 122px;
-                vertical-align: top;
-                background: rgba(255, 255, 255, 0.045);
-                border: 1px solid rgba(255, 255, 255, 0.085);
-                border-radius: 18px;
-                padding: 0;
-                overflow: hidden;
-                transition: 0.15s ease;
-            }}
-
-            .calendar-table-cell:hover {{
-                background: rgba(255, 255, 255, 0.07);
-                border-color: rgba(148, 163, 184, 0.24);
-                transform: translateY(-1px);
-            }}
-
-            .calendar-table-empty {{
-                opacity: 0.22;
-                background: rgba(255, 255, 255, 0.025);
-                pointer-events: none;
-            }}
-
-            .calendar-table-link {{
-                display: block;
-                width: 100%;
-                height: 122px;
-                padding: 11px;
-                text-decoration: none;
-                color: inherit;
-                cursor: pointer;
-                background: transparent;
-                border: none;
-                outline: none;
-                text-align: left;
-                font: inherit;
-            }}
-
-            .calendar-table-today {{
-                border-color: rgba(91, 140, 255, 0.72);
-                box-shadow: 0 0 0 1px rgba(91, 140, 255, 0.32);
-                background:
-                    linear-gradient(135deg, rgba(91, 140, 255, 0.13), rgba(124, 92, 255, 0.07)),
-                    rgba(255, 255, 255, 0.055);
-            }}
-
-            .calendar-table-selected {{
-                border-color: rgba(34, 197, 94, 0.82);
-                box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.30);
-            }}
-
-            .calendar-table-day-head {{
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                gap: 5px;
-                margin-bottom: 7px;
-            }}
-
-            .calendar-table-day-number {{
-                color: #F8FAFC;
-                font-size: 15px;
-                font-weight: 900;
-                flex-shrink: 0;
-            }}
-
-            .calendar-table-count {{
-                background: rgba(255, 255, 255, 0.11);
-                color: #E2E8F0;
-                border: 1px solid rgba(255, 255, 255, 0.10);
-                border-radius: 999px;
-                padding: 2px 7px;
-                font-size: 10px;
-                font-weight: 850;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-            }}
-
-            .calendar-table-events {{
-                display: flex;
-                flex-direction: column;
-                gap: 5px;
-            }}
-
-            .calendar-table-event {{
-                border-radius: 12px;
-                padding: 5px 7px;
-            }}
-
-            .calendar-table-customer {{
-                background: rgba(59, 130, 246, 0.16);
-                border: 1px solid rgba(96, 165, 250, 0.30);
-            }}
-
-            .calendar-table-general {{
-                background: rgba(34, 197, 94, 0.15);
-                border: 1px solid rgba(74, 222, 128, 0.28);
-            }}
-
-            .calendar-table-type {{
-                display: inline-block;
-                color: #F8FAFC;
-                background: rgba(255, 255, 255, 0.13);
-                border-radius: 999px;
-                padding: 2px 6px;
-                font-size: 9px;
-                font-weight: 900;
-                margin-bottom: 2px;
-            }}
-
-            .calendar-table-event-name {{
-                color: #F8FAFC;
-                font-size: 11px;
-                font-weight: 800;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-            }}
-
-            .calendar-table-event-desc {{
-                color: #CBD5E1;
-                font-size: 10px;
-                margin-top: 1px;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-            }}
-
-            .calendar-table-more {{
-                color: #94A3B8;
-                font-size: 10px;
-                padding-left: 4px;
-            }}
-        </style>
-
-        <script>
-            function selectCalendarDate(dateText) {{
-                try {{
-                    const url = new URL(window.parent.location.href);
-                    url.searchParams.set("calendar_date", dateText);
-                    window.parent.location.assign(url.toString());
-                }} catch (error) {{
-                    try {{
-                        window.top.location.href = "?calendar_date=" + encodeURIComponent(dateText);
-                    }} catch (fallbackError) {{
-                        console.log(fallbackError);
-                    }}
-                }}
-            }}
-        </script>
-    </head>
-    <body>
-        <div class="calendar-table-wrap">
-            <table class="calendar-table">
-                <thead>
-                    <tr>
-                        {header_cells}
-                    </tr>
-                </thead>
-                <tbody>
-                    {body_rows}
-                </tbody>
-            </table>
+    st.markdown(
+        """
         </div>
-    </body>
-    </html>
-    """
-
-
-def _render_calendar(year, month, customer_actions, general_schedules):
-    selected_date = _get_selected_date()
-
-    calendar_html = _build_calendar_html(
-        year,
-        month,
-        customer_actions,
-        general_schedules,
-        selected_date,
-    )
-
-    weeks_count = len(
-        calendar.Calendar(firstweekday=6).monthdayscalendar(year, month)
-    )
-    calendar_height = 96 + (weeks_count * 132)
-
-    components.html(
-        calendar_html,
-        height=calendar_height,
-        scrolling=False,
+        """,
+        unsafe_allow_html=True,
     )
 
 
