@@ -1,13 +1,34 @@
-import streamlit as st
+import html
 from datetime import date
+
+import streamlit as st
 
 from utils.customer import get_customers
 from utils.consult import add_consult_log, get_consult_logs
+from utils.page_common import render_view_header
+from utils.ui import (
+    render_card_start,
+    render_card_end,
+    render_section_title,
+)
 
 
 def init_consult_state():
     if "selected_consult_customer_id" not in st.session_state:
         st.session_state.selected_consult_customer_id = None
+
+
+def safe_text(value, default="-"):
+    text = str(value or "").strip()
+
+    if not text:
+        return default
+
+    return text
+
+
+def safe_html(value, default="-"):
+    return html.escape(safe_text(value, default))
 
 
 def get_first_line(text):
@@ -24,59 +45,20 @@ def get_first_line(text):
     return first_line
 
 
-def render_section_title(title):
-    st.markdown(
-        f"""
-        <div style="
-            margin-top: 8px;
-            margin-bottom: 8px;
-            padding: 8px 10px;
-            border-left: 4px solid #4F46E5;
-            background-color: rgba(79, 70, 229, 0.08);
-            font-weight: 700;
-        ">
-            {title}
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-
 def render_content_box(text):
-    safe_text = (
-        str(text or "")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-    )
+    safe_value = safe_html(text, "내용 없음")
 
     st.markdown(
         f"""
-        <div style="
-            padding: 12px;
-            border: 1px solid rgba(120, 120, 120, 0.35);
-            border-radius: 8px;
-            background-color: rgba(250, 250, 250, 0.04);
-            white-space: pre-wrap;
-            line-height: 1.6;
-        ">
-            {safe_text}
+        <div class="crm-content-box">
+            {safe_value}
         </div>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
 
-def consult_manage_page(user):
-    init_consult_state()
-
-    st.subheader("상담 이력 관리")
-
-    customers = get_customers(user)
-
-    if not customers:
-        st.info("상담 이력을 등록할 고객이 없습니다.")
-        return
-
+def build_customer_options(customers):
     customer_options = {"(선택)": None}
 
     for customer in customers:
@@ -85,33 +67,13 @@ def consult_manage_page(user):
             f"{customer.get('phone') or '연락처 없음'} / "
             f"{customer.get('status') or '상태 없음'}"
         )
+
         customer_options[label] = customer["id"]
 
-    option_labels = list(customer_options.keys())
-    customer_ids = list(customer_options.values())
+    return customer_options
 
-    default_index = 0
 
-    if st.session_state.selected_consult_customer_id in customer_ids:
-        default_index = customer_ids.index(
-            st.session_state.selected_consult_customer_id
-        )
-
-    selected_label = st.selectbox(
-        "고객 선택",
-        option_labels,
-        index=default_index
-    )
-
-    selected_customer_id = customer_options[selected_label]
-    st.session_state.selected_consult_customer_id = selected_customer_id
-
-    if selected_customer_id is None:
-        st.info("상담 이력을 등록하거나 조회할 고객을 선택하세요.")
-        return
-
-    selected_customer_name = selected_label.split(" / ")[0]
-
+def render_consult_form(user, selected_customer_id, selected_customer_name):
     nonce_key = f"consult_nonce_{selected_customer_id}"
 
     if nonce_key not in st.session_state:
@@ -119,19 +81,20 @@ def consult_manage_page(user):
 
     nonce = st.session_state[nonce_key]
 
-    st.divider()
-    st.subheader("상담 내용 등록")
+    render_card_start()
+    render_section_title("상담 내용 등록")
 
     consult_date = st.date_input(
         "상담일",
         value=date.today(),
-        key=f"consult_date_{selected_customer_id}_{nonce}"
+        key=f"consult_date_{selected_customer_id}_{nonce}",
     )
 
     content = st.text_area(
         "상담 내용",
         height=180,
-        key=f"consult_content_{selected_customer_id}_{nonce}"
+        placeholder="상담 내용, 고객 니즈, 기존 보장 특이사항 등을 입력하세요.",
+        key=f"consult_content_{selected_customer_id}_{nonce}",
     )
 
     st.markdown("---")
@@ -139,29 +102,33 @@ def consult_manage_page(user):
     use_next_action_date = st.checkbox(
         "다음 연락일 등록",
         value=False,
-        key=f"use_next_action_date_{selected_customer_id}_{nonce}"
+        key=f"use_next_action_date_{selected_customer_id}_{nonce}",
     )
 
     next_action_date = None
     next_action = ""
 
     if use_next_action_date:
-        next_action_date = st.date_input(
-            "다음 연락 예정일",
-            value=date.today(),
-            key=f"next_action_date_{selected_customer_id}_{nonce}"
-        )
+        col1, col2 = st.columns([0.45, 0.55])
 
-        next_action = st.text_input(
-            "다음 연락 내용",
-            placeholder="예: 상담 예정, 증권 요청, 리모델링 제안서 전달",
-            key=f"next_action_{selected_customer_id}_{nonce}"
-        )
+        with col1:
+            next_action_date = st.date_input(
+                "다음 연락 예정일",
+                value=date.today(),
+                key=f"next_action_date_{selected_customer_id}_{nonce}",
+            )
+
+        with col2:
+            next_action = st.text_input(
+                "다음 연락 내용",
+                placeholder="예: 상담 예정, 증권 요청, 리모델링 제안서 전달",
+                key=f"next_action_{selected_customer_id}_{nonce}",
+            )
 
     submitted = st.button(
         "상담 이력 저장",
         use_container_width=True,
-        key=f"save_consult_{selected_customer_id}_{nonce}"
+        key=f"save_consult_{selected_customer_id}_{nonce}",
     )
 
     if submitted:
@@ -179,7 +146,7 @@ def consult_manage_page(user):
                 consult_date=str(consult_date),
                 content=content.strip(),
                 next_action=next_action.strip(),
-                next_action_date=next_action_date_text
+                next_action_date=next_action_date_text,
             )
 
             st.session_state[nonce_key] += 1
@@ -193,13 +160,18 @@ def consult_manage_page(user):
 
             st.rerun()
 
-    st.divider()
-    st.subheader("상담 이력 조회")
+    render_card_end()
+
+
+def render_consult_logs(selected_customer_id):
+    render_card_start()
+    render_section_title("상담 이력 조회")
 
     logs = get_consult_logs(selected_customer_id)
 
     if not logs:
         st.info("등록된 상담 이력이 없습니다.")
+        render_card_end()
         return
 
     for log in logs:
@@ -207,7 +179,7 @@ def consult_manage_page(user):
 
         title_parts = [
             str(log.get("consult_date") or ""),
-            first_line
+            first_line,
         ]
 
         if log.get("next_action_date"):
@@ -237,3 +209,60 @@ def consult_manage_page(user):
                 render_content_box(next_contact_text)
 
             st.caption(f"등록일: {log['created_at']}")
+
+    render_card_end()
+
+
+def consult_manage_page(user):
+    init_consult_state()
+
+    render_view_header(
+        "상담 이력 관리",
+        "고객별 상담 내용을 기록하고 다음 연락 일정을 관리하세요.",
+    )
+
+    customers = get_customers(user)
+
+    if not customers:
+        st.info("상담 이력을 등록할 고객이 없습니다.")
+        return
+
+    customer_options = build_customer_options(customers)
+
+    option_labels = list(customer_options.keys())
+    customer_ids = list(customer_options.values())
+
+    default_index = 0
+
+    if st.session_state.selected_consult_customer_id in customer_ids:
+        default_index = customer_ids.index(
+            st.session_state.selected_consult_customer_id
+        )
+
+    render_card_start()
+    render_section_title("고객 선택")
+
+    selected_label = st.selectbox(
+        "상담 이력을 등록하거나 조회할 고객을 선택하세요.",
+        option_labels,
+        index=default_index,
+    )
+
+    selected_customer_id = customer_options[selected_label]
+    st.session_state.selected_consult_customer_id = selected_customer_id
+
+    render_card_end()
+
+    if selected_customer_id is None:
+        st.info("상담 이력을 등록하거나 조회할 고객을 선택하세요.")
+        return
+
+    selected_customer_name = selected_label.split(" / ")[0]
+
+    left, right = st.columns([0.92, 1.08])
+
+    with left:
+        render_consult_form(user, selected_customer_id, selected_customer_name)
+
+    with right:
+        render_consult_logs(selected_customer_id)

@@ -1,6 +1,9 @@
 import streamlit as st
 
 from utils.customer import add_customer
+from utils.page_common import render_view_header
+from utils.ui import render_card_start, render_card_end, render_section_title
+
 
 STATUS_OPTIONS = [
     "상담예정",
@@ -10,7 +13,7 @@ STATUS_OPTIONS = [
     "청약예정",
     "계약완료",
     "보류",
-    "실패"
+    "실패",
 ]
 
 CUSTOMER_TYPE_OPTIONS = [
@@ -19,7 +22,7 @@ CUSTOMER_TYPE_OPTIONS = [
     "소개고객",
     "가망고객",
     "계약고객",
-    "기타"
+    "기타",
 ]
 
 CARRIER_OPTIONS = [
@@ -29,13 +32,15 @@ CARRIER_OPTIONS = [
     "LG U+",
     "알뜰폰SK",
     "알뜰폰KT",
-    "알뜰폰LG U+"
+    "알뜰폰LG U+",
 ]
 
 
 def customer_register_page(user):
-
-    st.subheader("고객 등록")
+    render_view_header(
+        "고객 등록",
+        "신규 고객의 기본 정보와 상담 진행 상태를 등록하세요.",
+    )
 
     if "customer_register_nonce" not in st.session_state:
         st.session_state.customer_register_nonce = 0
@@ -49,20 +54,24 @@ def customer_register_page(user):
 
     form_nonce = st.session_state.customer_register_nonce
 
-    with st.form(f"customer_form_{form_nonce}"):
+    render_card_start()
 
+    render_section_title("기본 정보 입력")
+
+    with st.form(f"customer_form_{form_nonce}"):
         col1, col2 = st.columns(2)
 
         with col1:
             customer_type = st.selectbox(
                 "고객유형",
                 CUSTOMER_TYPE_OPTIONS,
-                key=f"customer_type_{form_nonce}"
+                key=f"customer_type_{form_nonce}",
             )
 
             name = st.text_input(
                 "고객명",
-                key=f"name_{form_nonce}"
+                placeholder="예: 홍길동",
+                key=f"name_{form_nonce}",
             )
 
             phone_col, carrier_col = st.columns([2, 1])
@@ -71,41 +80,47 @@ def customer_register_page(user):
                 phone = st.text_input(
                     "연락처",
                     placeholder="예: 01012345678",
-                    key=f"phone_{form_nonce}"
+                    key=f"phone_{form_nonce}",
                 )
 
             with carrier_col:
                 carrier = st.selectbox(
                     "통신사",
                     CARRIER_OPTIONS,
-                    key=f"carrier_{form_nonce}"
+                    key=f"carrier_{form_nonce}",
                 )
 
         with col2:
             rrn = st.text_input(
                 "주민번호",
                 placeholder="예: 900101-1******",
-                key=f"rrn_{form_nonce}"
-            )
-
-            address = st.text_area(
-                "주소",
-                height=100,
-                key=f"address_{form_nonce}"
+                key=f"rrn_{form_nonce}",
             )
 
             status = st.selectbox(
                 "진행상태",
                 STATUS_OPTIONS,
-                key=f"status_{form_nonce}"
+                key=f"status_{form_nonce}",
+            )
+
+            address = st.text_area(
+                "주소",
+                placeholder="예: 전남 여수시 ...",
+                height=104,
+                key=f"address_{form_nonce}",
             )
 
         memo = st.text_area(
             "메모",
-            key=f"memo_{form_nonce}"
+            placeholder="고객 성향, 니즈, 기존 보험 특이사항 등을 기록하세요.",
+            height=120,
+            key=f"memo_{form_nonce}",
         )
 
-        submitted = st.form_submit_button("고객 저장")
+        submitted = st.form_submit_button(
+            "고객 저장",
+            use_container_width=True,
+        )
 
         if submitted:
             if not name.strip():
@@ -120,10 +135,12 @@ def customer_register_page(user):
                     rrn=rrn.strip(),
                     address=address.strip(),
                     status=status,
-                    memo=memo.strip()
+                    memo=memo.strip(),
                 )
 
                 st.session_state.customer_register_nonce += 1
                 st.session_state.customer_register_success = True
 
                 st.rerun()
+
+    render_card_end()

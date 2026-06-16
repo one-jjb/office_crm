@@ -1,21 +1,42 @@
+import html
 import re
+
 import streamlit as st
 
 from utils.customer import (
     get_customers,
     get_customer_by_id,
     update_customer,
-    delete_customer
+    delete_customer,
+)
+from utils.page_common import render_view_header
+from utils.ui import (
+    render_card_start,
+    render_card_end,
+    render_section_title,
+    render_metric_card,
+    get_status_class,
 )
 
+
 STATUS_OPTIONS = [
-    "상담예정", "상담중", "분석중", "제안완료",
-    "청약예정", "계약완료", "보류", "실패"
+    "상담예정",
+    "상담중",
+    "분석중",
+    "제안완료",
+    "청약예정",
+    "계약완료",
+    "보류",
+    "실패",
 ]
 
 CUSTOMER_TYPE_OPTIONS = [
-    "신규고객", "기존고객", "소개고객",
-    "가망고객", "계약고객", "기타"
+    "신규고객",
+    "기존고객",
+    "소개고객",
+    "가망고객",
+    "계약고객",
+    "기타",
 ]
 
 CARRIER_OPTIONS = [
@@ -25,12 +46,21 @@ CARRIER_OPTIONS = [
     "LG U+",
     "알뜰폰SK",
     "알뜰폰KT",
-    "알뜰폰LG U+"
+    "알뜰폰LG U+",
 ]
 
 
 def safe_value(value):
     return "" if value is None else str(value)
+
+
+def safe_html(value, default="-"):
+    text = safe_value(value).strip()
+
+    if not text:
+        text = default
+
+    return html.escape(text)
 
 
 def only_digits(value):
@@ -46,6 +76,7 @@ def format_phone(phone):
     if len(digits) == 10:
         if digits.startswith("02"):
             return f"{digits[:2]}-{digits[2:6]}-{digits[6:]}"
+
         return f"{digits[:3]}-{digits[3:6]}-{digits[6:]}"
 
     if len(digits) == 9 and digits.startswith("02"):
@@ -136,113 +167,85 @@ def short_address(address):
     return text
 
 
-def customer_list_page(user):
-    st.subheader("고객 리스트")
+def count_status(customers, keyword):
+    count = 0
 
-    customers = get_customers(user)
+    for customer in customers:
+        status = safe_value(customer.get("status"))
 
-    if not customers:
-        st.info("등록된 고객이 없습니다.")
-        return
+        if keyword in status:
+            count += 1
 
-    if "selected_customer_id" not in st.session_state:
-        st.session_state.selected_customer_id = None
+    return count
 
-    customer_ids = [customer["id"] for customer in customers]
 
-    if st.session_state.selected_customer_id not in customer_ids:
-        st.session_state.selected_customer_id = None
+def render_customer_card(customer, is_selected):
+    customer_id = customer["id"]
 
-    st.caption("고객명을 누르면 아래에 상세/수정 화면이 열립니다.")
+    name = safe_html(customer.get("name"), "이름없음")
+    phone = safe_html(
+        format_phone_with_carrier(
+            customer.get("phone"),
+            customer.get("carrier"),
+        ),
+        "연락처 없음",
+    )
+    age = safe_html(get_age_from_rrn(customer.get("rrn")), "-")
+    rrn = safe_html(format_mask_rrn(customer.get("rrn")), "-")
+    address = safe_html(short_address(customer.get("address")), "-")
+    status = safe_html(customer.get("status"), "상태 없음")
+    customer_type = safe_html(customer.get("customer_type"), "유형 없음")
 
-    with st.container(border=True):
-        header_cols = st.columns([1.6, 1.1, 2, 2.2, 2, 1])
+    selected_class = " customer-card-selected" if is_selected else ""
+    badge_class = get_status_class(customer.get("status"))
 
-        with header_cols[0]:
-            st.markdown("**이름**")
+    st.markdown(
+        f"""
+        <div class="crm-list-card{selected_class}">
+            <div class="recent-customer-left">
+                <div class="recent-avatar">{name[:1]}</div>
+                <div class="recent-main">
+                    <div class="recent-name">{name}</div>
+                    <div class="recent-meta">{customer_type} · {phone}</div>
+                    <div class="recent-meta">주민번호 {rrn} · {age} · {address}</div>
+                </div>
+            </div>
+            <div class="recent-customer-right">
+                <div class="recent-status {badge_class}">{status}</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-        with header_cols[1]:
-            st.markdown("**만 나이**")
+    col_select, col_consult = st.columns([0.5, 0.5])
 
-        with header_cols[2]:
-            st.markdown("**주민번호**")
+    with col_select:
+        button_label = "선택됨" if is_selected else "상세 / 수정"
 
-        with header_cols[3]:
-            st.markdown("**연락처 / 통신사**")
+        if st.button(
+            button_label,
+            key=f"select_customer_{customer_id}",
+            use_container_width=True,
+        ):
+            st.session_state.selected_customer_id = customer_id
+            st.rerun()
 
-        with header_cols[4]:
-            st.markdown("**주소**")
+    with col_consult:
+        if st.button(
+            "상담",
+            key=f"go_consult_{customer_id}",
+            use_container_width=True,
+        ):
+            st.session_state.selected_consult_customer_id = customer_id
+            st.switch_page("pages/4_상담이력.py")
 
-        with header_cols[5]:
-            st.markdown("**상담**")
 
-        st.divider()
-
-        for customer in customers:
-            is_selected = (
-                st.session_state.selected_customer_id == customer["id"]
-            )
-
-            row_cols = st.columns([1.6, 1.1, 2, 2.2, 2, 1])
-
-            with row_cols[0]:
-                button_label = customer.get("name") or "이름없음"
-
-                if is_selected:
-                    button_label = f"✅ {button_label}"
-
-                if st.button(
-                    button_label,
-                    key=f"select_customer_{customer['id']}",
-                    use_container_width=True
-                ):
-                    st.session_state.selected_customer_id = customer["id"]
-                    st.rerun()
-
-            with row_cols[1]:
-                st.write(get_age_from_rrn(customer.get("rrn")))
-
-            with row_cols[2]:
-                st.write(format_mask_rrn(customer.get("rrn")))
-
-            with row_cols[3]:
-                st.write(
-                    format_phone_with_carrier(
-                        customer.get("phone"),
-                        customer.get("carrier")
-                    )
-                )
-
-            with row_cols[4]:
-                st.write(short_address(customer.get("address")))
-
-            with row_cols[5]:
-                if st.button(
-                    "상담",
-                    key=f"go_consult_{customer['id']}",
-                    use_container_width=True
-                ):
-                    st.session_state.selected_consult_customer_id = customer["id"]
-                    st.switch_page("pages/4_상담이력.py")
-
-    st.divider()
-
-    selected_customer_id = st.session_state.selected_customer_id
-
-    if not selected_customer_id:
-        st.info("상세보기 또는 수정을 하려면 고객명을 선택하세요.")
-        return
-
-    customer = get_customer_by_id(selected_customer_id)
-
-    if not customer:
-        st.warning("고객 정보를 찾을 수 없습니다.")
-        return
-
-    st.subheader("고객 상세 / 수정")
+def render_customer_detail_form(customer, selected_customer_id, user):
+    render_card_start()
+    render_section_title("고객 상세 / 수정")
 
     with st.form(f"customer_detail_edit_form_{selected_customer_id}"):
-
         col1, col2 = st.columns(2)
 
         current_type = customer.get("customer_type") or CUSTOMER_TYPE_OPTIONS[0]
@@ -271,12 +274,12 @@ def customer_list_page(user):
             customer_type = st.selectbox(
                 "고객유형",
                 CUSTOMER_TYPE_OPTIONS,
-                index=type_index
+                index=type_index,
             )
 
             name = st.text_input(
                 "고객명",
-                value=safe_value(customer.get("name"))
+                value=safe_value(customer.get("name")),
             )
 
             phone_col, carrier_col = st.columns([2, 1])
@@ -285,26 +288,26 @@ def customer_list_page(user):
                 phone = st.text_input(
                     "연락처",
                     value=safe_value(customer.get("phone")),
-                    placeholder="예: 01012345678"
+                    placeholder="예: 01012345678",
                 )
 
             with carrier_col:
                 carrier = st.selectbox(
                     "통신사",
                     CARRIER_OPTIONS,
-                    index=carrier_index
+                    index=carrier_index,
                 )
 
         with col2:
             rrn = st.text_input(
                 "주민번호",
-                value=safe_value(customer.get("rrn"))
+                value=safe_value(customer.get("rrn")),
             )
 
             status = st.selectbox(
                 "진행상태",
                 STATUS_OPTIONS,
-                index=status_index
+                index=status_index,
             )
 
             owner_name = safe_value(customer.get("owner_name"))
@@ -316,13 +319,13 @@ def customer_list_page(user):
         address = st.text_area(
             "주소",
             value=safe_value(customer.get("address")),
-            height=90
+            height=90,
         )
 
         memo = st.text_area(
             "메모",
             value=safe_value(customer.get("memo")),
-            height=120
+            height=120,
         )
 
         col_save, col_consult = st.columns(2)
@@ -330,13 +333,13 @@ def customer_list_page(user):
         with col_save:
             submitted = st.form_submit_button(
                 "저장",
-                use_container_width=True
+                use_container_width=True,
             )
 
         with col_consult:
             go_consult = st.form_submit_button(
                 "상담 이력으로 이동",
-                use_container_width=True
+                use_container_width=True,
             )
 
         if submitted:
@@ -352,7 +355,7 @@ def customer_list_page(user):
                     rrn=rrn.strip(),
                     address=address.strip(),
                     status=status,
-                    memo=memo.strip()
+                    memo=memo.strip(),
                 )
 
                 st.success("고객 정보가 저장되었습니다.")
@@ -362,29 +365,108 @@ def customer_list_page(user):
             st.session_state.selected_consult_customer_id = selected_customer_id
             st.switch_page("pages/4_상담이력.py")
 
-    st.divider()
+    render_card_end()
 
-    with st.expander("고객 삭제"):
-        st.warning("고객을 삭제하면 해당 고객의 상담 이력도 함께 삭제됩니다.")
+    render_card_start()
+    render_section_title("고객 삭제")
 
-        confirm_text = st.text_input(
-            "삭제하려면 고객명을 그대로 입력하세요.",
-            key=f"delete_confirm_{selected_customer_id}"
-        )
+    st.warning("고객을 삭제하면 해당 고객의 상담 이력도 함께 삭제됩니다.")
 
-        if st.button(
-            "고객 삭제",
-            key=f"delete_customer_{selected_customer_id}",
-            use_container_width=True
-        ):
-            if confirm_text.strip() != safe_value(customer.get("name")).strip():
-                st.error("고객명이 일치하지 않아 삭제하지 않았습니다.")
+    confirm_text = st.text_input(
+        "삭제하려면 고객명을 그대로 입력하세요.",
+        key=f"delete_confirm_{selected_customer_id}",
+    )
+
+    if st.button(
+        "고객 삭제",
+        key=f"delete_customer_{selected_customer_id}",
+        use_container_width=True,
+    ):
+        if confirm_text.strip() != safe_value(customer.get("name")).strip():
+            st.error("고객명이 일치하지 않아 삭제하지 않았습니다.")
+        else:
+            deleted = delete_customer(selected_customer_id, user)
+
+            if deleted:
+                st.success("고객이 삭제되었습니다.")
+                st.session_state.selected_customer_id = None
+                st.rerun()
             else:
-                deleted = delete_customer(selected_customer_id, user)
+                st.error("삭제 권한이 없거나 고객을 찾을 수 없습니다.")
 
-                if deleted:
-                    st.success("고객이 삭제되었습니다.")
-                    st.session_state.selected_customer_id = None
-                    st.rerun()
-                else:
-                    st.error("삭제 권한이 없거나 고객을 찾을 수 없습니다.")
+    render_card_end()
+
+
+def customer_list_page(user):
+    render_view_header(
+        "고객 리스트",
+        "등록된 고객을 확인하고 상세 정보, 상담 이력, 진행 상태를 관리하세요.",
+    )
+
+    customers = get_customers(user)
+
+    if not customers:
+        st.info("등록된 고객이 없습니다.")
+        return
+
+    if "selected_customer_id" not in st.session_state:
+        st.session_state.selected_customer_id = None
+
+    customer_ids = [customer["id"] for customer in customers]
+
+    if st.session_state.selected_customer_id not in customer_ids:
+        st.session_state.selected_customer_id = None
+
+    total_customers = len(customers)
+    active_customers = count_status(customers, "상담")
+    completed_customers = count_status(customers, "완료")
+    pending_customers = count_status(customers, "보류")
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        render_metric_card("전체 고객", total_customers, "등록된 고객 수")
+
+    with col2:
+        render_metric_card("상담 고객", active_customers, "상담 상태 고객")
+
+    with col3:
+        render_metric_card("계약 완료", completed_customers, "완료 상태 고객")
+
+    with col4:
+        render_metric_card("보류 고객", pending_customers, "보류 상태 고객")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    left, right = st.columns([1.12, 0.88])
+
+    with left:
+        render_card_start()
+        render_section_title("고객 목록")
+        st.caption("고객 카드를 선택하면 오른쪽에서 상세 정보 수정이 가능합니다.")
+
+        for customer in customers:
+            is_selected = (
+                st.session_state.selected_customer_id == customer["id"]
+            )
+            render_customer_card(customer, is_selected)
+
+        render_card_end()
+
+    with right:
+        selected_customer_id = st.session_state.selected_customer_id
+
+        if not selected_customer_id:
+            render_card_start()
+            render_section_title("상세 정보")
+            st.info("상세보기 또는 수정을 하려면 고객을 선택하세요.")
+            render_card_end()
+            return
+
+        customer = get_customer_by_id(selected_customer_id)
+
+        if not customer:
+            st.warning("고객 정보를 찾을 수 없습니다.")
+            return
+
+        render_customer_detail_form(customer, selected_customer_id, user)
