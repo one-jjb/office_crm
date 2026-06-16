@@ -8,11 +8,8 @@ import streamlit.components.v1 as components
 
 from utils.ui import (
     inject_global_css,
-    render_page_header,
     render_metric_card,
     render_section_title,
-    render_card_start,
-    render_card_end,
 )
 from utils.customer import get_customers
 from utils.consult import get_month_next_actions
@@ -101,6 +98,11 @@ def _init_calendar_state():
     query_date = _get_query_calendar_date()
 
     if query_date:
+        before_date = st.session_state.get("selected_calendar_date")
+
+        if before_date != query_date.isoformat():
+            st.session_state.editing_general_schedule_id = None
+
         st.session_state.selected_calendar_date = query_date.isoformat()
         st.session_state.calendar_year = query_date.year
         st.session_state.calendar_month = query_date.month
@@ -199,11 +201,7 @@ def _render_month_selector():
 
     with center:
         st.markdown(
-            f"""
-            <div class="calendar-month-title">
-                {st.session_state.calendar_year}년 {st.session_state.calendar_month}월
-            </div>
-            """,
+            f'<div class="home-month-title">{st.session_state.calendar_year}년 {st.session_state.calendar_month}월</div>',
             unsafe_allow_html=True,
         )
 
@@ -228,6 +226,266 @@ def _render_month_selector():
             st.rerun()
 
     return st.session_state.calendar_year, st.session_state.calendar_month
+
+
+def _collect_upcoming_items(customer_actions, general_schedules):
+    today = date.today()
+    items = []
+
+    for action in customer_actions:
+        action_date = _parse_date(action.get("next_action_date"))
+
+        if action_date and action_date >= today:
+            items.append({
+                "date": action_date,
+                "type": "고객",
+                "title": _safe_text(action.get("customer_name"), "고객명 없음"),
+                "desc": _safe_text(action.get("next_action"), "상담 예정"),
+            })
+
+    for schedule in general_schedules:
+        schedule_date = _parse_date(schedule.get("schedule_date"))
+
+        if schedule_date and schedule_date >= today:
+            items.append({
+                "date": schedule_date,
+                "type": "일반",
+                "title": _safe_text(schedule.get("title"), "일반일정"),
+                "desc": _safe_text(schedule.get("content"), ""),
+            })
+
+    items = sorted(items, key=lambda item: item["date"])
+
+    return items[:4]
+
+
+def _build_upcoming_board_html(customer_actions, general_schedules):
+    upcoming_items = _collect_upcoming_items(customer_actions, general_schedules)
+
+    if not upcoming_items:
+        item_html = """
+        <div class="upcoming-empty">
+            다가오는 일정이 없습니다.
+        </div>
+        """
+    else:
+        item_parts = []
+
+        for item in upcoming_items:
+            item_date = item["date"]
+            item_type = html.escape(item["type"])
+            item_title = html.escape(item["title"])
+            item_desc = html.escape(item["desc"])
+
+            type_class = "customer"
+
+            if item["type"] == "일반":
+                type_class = "general"
+
+            desc_html = ""
+
+            if item_desc:
+                desc_html = f'<div class="upcoming-desc">{item_desc}</div>'
+
+            item_parts.append(
+                f"""
+                <div class="upcoming-item">
+                    <div class="upcoming-date">
+                        <div class="upcoming-day">{item_date.day}</div>
+                        <div class="upcoming-month">{item_date.month}월</div>
+                    </div>
+                    <div class="upcoming-body">
+                        <div class="upcoming-top">
+                            <span class="upcoming-type {type_class}">{item_type}</span>
+                            <span class="upcoming-title">{item_title}</span>
+                        </div>
+                        {desc_html}
+                    </div>
+                </div>
+                """
+            )
+
+        item_html = "".join(item_parts)
+
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            * {{
+                box-sizing: border-box;
+            }}
+
+            body {{
+                margin: 0;
+                padding: 0;
+                background: transparent;
+                font-family:
+                    -apple-system,
+                    BlinkMacSystemFont,
+                    "Segoe UI",
+                    sans-serif;
+            }}
+
+            .upcoming-board {{
+                width: 100%;
+                min-height: 150px;
+                background: rgba(15, 23, 42, 0.62);
+                border: 1px solid rgba(255, 255, 255, 0.10);
+                border-radius: 24px;
+                padding: 24px 28px;
+                box-shadow: 0 18px 60px rgba(0, 0, 0, 0.22);
+            }}
+
+            .upcoming-board-title {{
+                color: #F8FAFC;
+                text-align: center;
+                font-size: 34px;
+                line-height: 1.1;
+                font-weight: 850;
+                letter-spacing: -0.06em;
+                margin-bottom: 18px;
+            }}
+
+            .upcoming-content {{
+                display: grid;
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+                gap: 12px;
+            }}
+
+            .upcoming-empty {{
+                color: #94A3B8;
+                text-align: center;
+                grid-column: 1 / -1;
+                padding: 16px;
+                font-size: 16px;
+            }}
+
+            .upcoming-item {{
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                background: rgba(255, 255, 255, 0.055);
+                border: 1px solid rgba(255, 255, 255, 0.10);
+                border-radius: 18px;
+                padding: 13px;
+                min-width: 0;
+            }}
+
+            .upcoming-date {{
+                width: 48px;
+                height: 48px;
+                border-radius: 16px;
+                background: linear-gradient(135deg, rgba(91, 140, 255, 0.28), rgba(124, 92, 255, 0.18));
+                border: 1px solid rgba(255, 255, 255, 0.10);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+            }}
+
+            .upcoming-day {{
+                color: #F8FAFC;
+                font-size: 18px;
+                font-weight: 900;
+                line-height: 1;
+            }}
+
+            .upcoming-month {{
+                color: #CBD5E1;
+                font-size: 11px;
+                margin-top: 3px;
+            }}
+
+            .upcoming-body {{
+                min-width: 0;
+            }}
+
+            .upcoming-top {{
+                display: flex;
+                gap: 6px;
+                align-items: center;
+                margin-bottom: 4px;
+                min-width: 0;
+            }}
+
+            .upcoming-type {{
+                display: inline-block;
+                border-radius: 999px;
+                padding: 3px 7px;
+                font-size: 10px;
+                font-weight: 900;
+                flex-shrink: 0;
+            }}
+
+            .upcoming-type.customer {{
+                color: #BFDBFE;
+                background: rgba(59, 130, 246, 0.20);
+            }}
+
+            .upcoming-type.general {{
+                color: #BBF7D0;
+                background: rgba(34, 197, 94, 0.20);
+            }}
+
+            .upcoming-title {{
+                color: #F8FAFC;
+                font-size: 14px;
+                font-weight: 850;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }}
+
+            .upcoming-desc {{
+                color: #94A3B8;
+                font-size: 12px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }}
+
+            @media screen and (max-width: 1000px) {{
+                .upcoming-content {{
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                }}
+            }}
+
+            @media screen and (max-width: 640px) {{
+                .upcoming-content {{
+                    grid-template-columns: 1fr;
+                }}
+
+                .upcoming-board-title {{
+                    font-size: 28px;
+                }}
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="upcoming-board">
+            <div class="upcoming-board-title">다가오는 일정</div>
+            <div class="upcoming-content">
+                {item_html}
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+
+def _render_upcoming_board(customer_actions, general_schedules):
+    upcoming_html = _build_upcoming_board_html(
+        customer_actions,
+        general_schedules,
+    )
+
+    components.html(
+        upcoming_html,
+        height=210,
+        scrolling=False,
+    )
 
 
 def _build_calendar_event_html(customer_actions, general_schedules):
@@ -344,10 +602,10 @@ def _build_calendar_html(year, month, customer_actions, general_schedules, selec
 
             body_rows += f"""
             <td class="calendar-table-cell{today_class}{selected_class}">
-                <a
+                <button
+                    type="button"
                     class="calendar-table-link"
-                    href="?calendar_date={current_date_text}"
-                    target="_parent"
+                    onclick="selectCalendarDate('{current_date_text}')"
                     title="{current_date_text}"
                 >
                     <div class="calendar-table-day-head">
@@ -357,7 +615,7 @@ def _build_calendar_html(year, month, customer_actions, general_schedules, selec
                     <div class="calendar-table-events">
                         {event_html}
                     </div>
-                </a>
+                </button>
             </td>
             """
 
@@ -390,7 +648,7 @@ def _build_calendar_html(year, month, customer_actions, general_schedules, selec
                 border: 1px solid rgba(255, 255, 255, 0.10);
                 border-radius: 24px;
                 box-shadow: 0 18px 60px rgba(0, 0, 0, 0.22);
-                overflow-x: auto;
+                overflow: hidden;
             }}
 
             .calendar-table {{
@@ -409,7 +667,7 @@ def _build_calendar_html(year, month, customer_actions, general_schedules, selec
             }}
 
             .calendar-table-cell {{
-                height: 142px;
+                height: 122px;
                 vertical-align: top;
                 background: rgba(255, 255, 255, 0.045);
                 border: 1px solid rgba(255, 255, 255, 0.085);
@@ -434,15 +692,16 @@ def _build_calendar_html(year, month, customer_actions, general_schedules, selec
             .calendar-table-link {{
                 display: block;
                 width: 100%;
-                height: 142px;
-                padding: 12px;
+                height: 122px;
+                padding: 11px;
                 text-decoration: none;
                 color: inherit;
                 cursor: pointer;
-            }}
-
-            .calendar-table-link:hover {{
-                text-decoration: none;
+                background: transparent;
+                border: none;
+                outline: none;
+                text-align: left;
+                font: inherit;
             }}
 
             .calendar-table-today {{
@@ -454,16 +713,16 @@ def _build_calendar_html(year, month, customer_actions, general_schedules, selec
             }}
 
             .calendar-table-selected {{
-                border-color: rgba(34, 197, 94, 0.78);
-                box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.28);
+                border-color: rgba(34, 197, 94, 0.82);
+                box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.30);
             }}
 
             .calendar-table-day-head {{
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
-                gap: 6px;
-                margin-bottom: 8px;
+                gap: 5px;
+                margin-bottom: 7px;
             }}
 
             .calendar-table-day-number {{
@@ -489,22 +748,22 @@ def _build_calendar_html(year, month, customer_actions, general_schedules, selec
             .calendar-table-events {{
                 display: flex;
                 flex-direction: column;
-                gap: 6px;
+                gap: 5px;
             }}
 
             .calendar-table-event {{
                 border-radius: 12px;
-                padding: 6px 8px;
+                padding: 5px 7px;
             }}
 
             .calendar-table-customer {{
-                background: rgba(59, 130, 246, 0.14);
-                border: 1px solid rgba(96, 165, 250, 0.28);
+                background: rgba(59, 130, 246, 0.16);
+                border: 1px solid rgba(96, 165, 250, 0.30);
             }}
 
             .calendar-table-general {{
-                background: rgba(34, 197, 94, 0.14);
-                border: 1px solid rgba(74, 222, 128, 0.26);
+                background: rgba(34, 197, 94, 0.15);
+                border: 1px solid rgba(74, 222, 128, 0.28);
             }}
 
             .calendar-table-type {{
@@ -515,12 +774,12 @@ def _build_calendar_html(year, month, customer_actions, general_schedules, selec
                 padding: 2px 6px;
                 font-size: 9px;
                 font-weight: 900;
-                margin-bottom: 3px;
+                margin-bottom: 2px;
             }}
 
             .calendar-table-event-name {{
                 color: #F8FAFC;
-                font-size: 12px;
+                font-size: 11px;
                 font-weight: 800;
                 white-space: nowrap;
                 overflow: hidden;
@@ -529,8 +788,8 @@ def _build_calendar_html(year, month, customer_actions, general_schedules, selec
 
             .calendar-table-event-desc {{
                 color: #CBD5E1;
-                font-size: 11px;
-                margin-top: 2px;
+                font-size: 10px;
+                margin-top: 1px;
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
@@ -538,10 +797,26 @@ def _build_calendar_html(year, month, customer_actions, general_schedules, selec
 
             .calendar-table-more {{
                 color: #94A3B8;
-                font-size: 11px;
+                font-size: 10px;
                 padding-left: 4px;
             }}
         </style>
+
+        <script>
+            function selectCalendarDate(dateText) {{
+                try {{
+                    const url = new URL(window.parent.location.href);
+                    url.searchParams.set("calendar_date", dateText);
+                    window.parent.location.assign(url.toString());
+                }} catch (error) {{
+                    try {{
+                        window.top.location.href = "?calendar_date=" + encodeURIComponent(dateText);
+                    }} catch (fallbackError) {{
+                        console.log(fallbackError);
+                    }}
+                }}
+            }}
+        </script>
     </head>
     <body>
         <div class="calendar-table-wrap">
@@ -572,45 +847,83 @@ def _render_calendar(year, month, customer_actions, general_schedules):
         selected_date,
     )
 
+    weeks_count = len(
+        calendar.Calendar(firstweekday=6).monthdayscalendar(year, month)
+    )
+    calendar_height = 96 + (weeks_count * 132)
+
     components.html(
         calendar_html,
-        height=860,
+        height=calendar_height,
         scrolling=False,
     )
 
 
-def _render_customer_schedule_list(selected_customer_actions):
-    render_section_title("고객일정")
+def _render_schedule_summary_box(selected_customer_actions, selected_general_schedules):
+    customer_html = ""
 
+    if selected_customer_actions:
+        for action in selected_customer_actions:
+            customer_name = _safe_html(action.get("customer_name"), "고객명 없음")
+            next_action = _safe_html(action.get("next_action"), "상담 예정")
+            customer_phone = _safe_html(action.get("customer_phone"), "연락처 없음")
+
+            customer_html += (
+                '<div class="home-schedule-item home-schedule-customer">'
+                '<div class="home-schedule-type">고객</div>'
+                f'<div class="home-schedule-title">{customer_name}</div>'
+                f'<div class="home-schedule-desc">{next_action}</div>'
+                f'<div class="home-schedule-meta">{customer_phone}</div>'
+                '</div>'
+            )
+    else:
+        customer_html = '<div class="home-schedule-empty">고객일정 없음</div>'
+
+    general_html = ""
+
+    if selected_general_schedules:
+        for schedule in selected_general_schedules:
+            title = _safe_html(schedule.get("title"), "일반일정")
+            content = _safe_html(schedule.get("content"), "")
+
+            content_html = ""
+
+            if content:
+                content_html = f'<div class="home-schedule-desc">{content}</div>'
+
+            general_html += (
+                '<div class="home-schedule-item home-schedule-general">'
+                '<div class="home-schedule-type">일반</div>'
+                f'<div class="home-schedule-title">{title}</div>'
+                f'{content_html}'
+                '</div>'
+            )
+    else:
+        general_html = '<div class="home-schedule-empty">일반일정 없음</div>'
+
+    st.markdown(
+        (
+            '<div class="home-right-dashed-box">'
+            '<div class="home-right-box-title">일정</div>'
+            f'<div class="home-schedule-group">{customer_html}</div>'
+            f'<div class="home-schedule-group">{general_html}</div>'
+            '</div>'
+        ),
+        unsafe_allow_html=True,
+    )
+
+
+def _render_customer_schedule_buttons(selected_customer_actions):
     if not selected_customer_actions:
-        st.info("선택한 날짜에 고객일정이 없습니다.")
         return
 
-    for action in selected_customer_actions:
-        customer_name = _safe_html(action.get("customer_name"))
-        customer_phone = _safe_html(action.get("customer_phone"), "연락처 없음")
-        next_action = _safe_html(action.get("next_action"), "상담 예정")
-        owner_name = _safe_html(action.get("owner_name"), "담당자 없음")
+    render_section_title("고객일정 수정")
 
-        st.markdown(
-            f"""
-            <div class="schedule-panel-card schedule-customer-card">
-                <div>
-                    <div class="schedule-panel-type customer-type">고객일정</div>
-                    <div class="today-action-title">{customer_name}</div>
-                    <div class="today-action-meta">{customer_phone}</div>
-                </div>
-                <div class="today-action-right">
-                    <div class="today-action-badge">{next_action}</div>
-                    <div class="today-action-owner">{owner_name}</div>
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+    for action in selected_customer_actions:
+        customer_name = _safe_text(action.get("customer_name"), "고객명 없음")
 
         if st.button(
-            "상담 이력에서 수정",
+            f"{customer_name} 상담 이력에서 수정",
             key=f"edit_customer_schedule_{action.get('id')}",
             use_container_width=True,
         ):
@@ -619,36 +932,19 @@ def _render_customer_schedule_list(selected_customer_actions):
 
 
 def _render_general_schedule_list(selected_general_schedules):
-    render_section_title("일반일정")
-
     if not selected_general_schedules:
-        st.info("선택한 날짜에 일반일정이 없습니다.")
         return
 
-    for schedule in selected_general_schedules:
-        title = _safe_html(schedule.get("title"), "일반일정")
-        content = _safe_html(schedule.get("content"), "")
-        owner_name = _safe_html(schedule.get("owner_name"), "작성자 없음")
+    render_section_title("일반일정 관리")
 
-        st.markdown(
-            f"""
-            <div class="schedule-panel-card schedule-general-card">
-                <div>
-                    <div class="schedule-panel-type general-type">일반일정</div>
-                    <div class="today-action-title">{title}</div>
-                    <div class="today-action-meta">{content}</div>
-                    <div class="today-action-owner">작성자: {owner_name}</div>
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+    for schedule in selected_general_schedules:
+        title = _safe_text(schedule.get("title"), "일반일정")
 
         col_edit, col_delete = st.columns(2)
 
         with col_edit:
             if st.button(
-                "수정",
+                f"{title} 수정",
                 key=f"edit_general_schedule_{schedule.get('id')}",
                 use_container_width=True,
             ):
@@ -693,21 +989,26 @@ def _render_general_schedule_form(user, selected_date, selected_general_schedule
         )
 
     if editing_schedule:
-        render_section_title("일반일정 수정")
+        form_title = "일반일정 수정"
         default_title = _safe_text(editing_schedule.get("title"), "")
         default_content = _safe_text(editing_schedule.get("content"), "")
         default_date = _parse_date(editing_schedule.get("schedule_date")) or selected_date
-        button_label = "일반일정 수정 저장"
+        button_label = "수정 저장"
         form_key = f"general_schedule_edit_form_{editing_id}"
         show_cancel = True
     else:
-        render_section_title("일반일정 추가")
+        form_title = "일반일정 입력 / 저장"
         default_title = ""
         default_content = ""
         default_date = selected_date
-        button_label = "일반일정 추가"
+        button_label = "저장"
         form_key = f"general_schedule_add_form_{selected_date.isoformat()}"
         show_cancel = False
+
+    st.markdown(
+        f'<div class="home-right-form-title">{form_title}</div>',
+        unsafe_allow_html=True,
+    )
 
     with st.form(form_key):
         schedule_date = st.date_input(
@@ -727,7 +1028,7 @@ def _render_general_schedule_form(user, selected_date, selected_general_schedule
             "일정 내용",
             value=default_content,
             placeholder="일정 상세 내용을 입력하세요.",
-            height=100,
+            height=110,
             key=f"{form_key}_content",
         )
 
@@ -742,7 +1043,7 @@ def _render_general_schedule_form(user, selected_date, selected_general_schedule
 
             with col_cancel:
                 cancel = st.form_submit_button(
-                    "수정 취소",
+                    "취소",
                     use_container_width=True,
                 )
         else:
@@ -768,6 +1069,7 @@ def _render_general_schedule_form(user, selected_date, selected_general_schedule
                     if updated:
                         st.success("일반일정이 수정되었습니다.")
                         st.session_state.editing_general_schedule_id = None
+                        _set_selected_date(schedule_date)
                         st.rerun()
                     else:
                         st.error("수정 권한이 없거나 일정을 찾을 수 없습니다.")
@@ -780,6 +1082,7 @@ def _render_general_schedule_form(user, selected_date, selected_general_schedule
                     )
 
                     st.success("일반일정이 추가되었습니다.")
+                    _set_selected_date(schedule_date)
                     st.rerun()
 
         if cancel:
@@ -799,25 +1102,22 @@ def _render_selected_day_panel(user, customer_actions, general_schedules):
         selected_date,
     )
 
-    render_card_start()
-
     st.markdown(
-        f"""
-        <div class="crm-hero-title" style="font-size:24px;">
-            {selected_date.year}년 {selected_date.month}월 {selected_date.day}일
-        </div>
-        <div class="crm-muted">
-            달력에서 날짜를 클릭하면 해당 날짜의 고객일정과 일반일정을 확인할 수 있습니다.
-        </div>
-        """,
+        (
+            '<div class="home-date-label">날짜</div>'
+            f'<div class="home-selected-date">{selected_date.year}년 {selected_date.month}월 {selected_date.day}일</div>'
+        ),
         unsafe_allow_html=True,
+    )
+
+    _render_schedule_summary_box(
+        selected_customer_actions,
+        selected_general_schedules,
     )
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    _render_customer_schedule_list(selected_customer_actions)
-
-    st.markdown("<br>", unsafe_allow_html=True)
+    _render_customer_schedule_buttons(selected_customer_actions)
 
     _render_general_schedule_list(selected_general_schedules)
 
@@ -828,8 +1128,6 @@ def _render_selected_day_panel(user, customer_actions, general_schedules):
         selected_date,
         selected_general_schedules,
     )
-
-    render_card_end()
 
 
 def home_page(user):
@@ -842,15 +1140,12 @@ def home_page(user):
     total_customers = len(customers)
     active_customers = _count_by_status(customers, "진행")
 
-    render_page_header(
-        "상담 일정 Dashboard",
-        f"{user.get('name', '사용자')}님, 고객일정과 일반일정을 한 화면에서 관리하세요.",
-    )
-
     year, month = _render_month_selector()
 
     customer_actions = get_month_next_actions(user, year, month)
     general_schedules = get_month_general_schedules(user, year, month)
+
+    _render_upcoming_board(customer_actions, general_schedules)
 
     col1, col2, col3, col4 = st.columns(4)
 
@@ -865,21 +1160,21 @@ def home_page(user):
         render_metric_card(
             label="고객일정",
             value=len(customer_actions),
-            desc="상담 이력 다음 연락일 기준",
+            desc="상담 이력 기준",
         )
 
     with col3:
         render_metric_card(
             label="일반일정",
             value=len(general_schedules),
-            desc="메인 달력 직접 등록 일정",
+            desc="직접 등록 일정",
         )
 
     with col4:
         render_metric_card(
             label="진행 고객",
             value=active_customers,
-            desc="상태에 '진행' 포함",
+            desc="진행 상태 고객",
         )
 
     st.markdown("<br>", unsafe_allow_html=True)
