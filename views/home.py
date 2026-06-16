@@ -4,13 +4,8 @@ from collections import defaultdict
 from datetime import date, datetime
 
 import streamlit as st
-import streamlit.components.v1 as components
 
-from utils.ui import (
-    inject_global_css,
-    render_metric_card,
-    render_section_title,
-)
+from utils.ui import render_metric_card, render_section_title
 from utils.customer import get_customers
 from utils.consult import get_month_next_actions
 from utils.schedule import (
@@ -27,10 +22,7 @@ def _safe_text(value, default="-"):
 
     value = str(value).strip()
 
-    if not value:
-        return default
-
-    return value
+    return value if value else default
 
 
 def _safe_html(value, default="-"):
@@ -41,81 +33,23 @@ def _parse_date(value):
     if not value:
         return None
 
-    value = str(value).strip()
-
     try:
-        return datetime.strptime(value[:10], "%Y-%m-%d").date()
+        return datetime.strptime(str(value)[:10], "%Y-%m-%d").date()
     except Exception:
         return None
-
-
-def _count_by_status(customers, keyword):
-    count = 0
-
-    for customer in customers:
-        status = str(customer.get("status", "")).strip()
-
-        if keyword in status:
-            count += 1
-
-    return count
-
-
-def _get_query_calendar_date():
-    try:
-        value = st.query_params.get("calendar_date")
-    except Exception:
-        value = None
-
-    if isinstance(value, list):
-        value = value[0] if value else None
-
-    return _parse_date(value)
-
-
-def _set_query_calendar_date(selected_date):
-    try:
-        st.query_params["calendar_date"] = selected_date.isoformat()
-    except Exception:
-        pass
 
 
 def _init_calendar_state():
     today = date.today()
 
-    if "calendar_year" not in st.session_state:
-        st.session_state.calendar_year = today.year
-
-    if "calendar_month" not in st.session_state:
-        st.session_state.calendar_month = today.month
-
-    if "selected_calendar_date" not in st.session_state:
-        st.session_state.selected_calendar_date = today.isoformat()
-
-    if "editing_general_schedule_id" not in st.session_state:
-        st.session_state.editing_general_schedule_id = None
-
-    query_date = _get_query_calendar_date()
-
-    if query_date:
-        before_date = st.session_state.get("selected_calendar_date")
-
-        if before_date != query_date.isoformat():
-            st.session_state.editing_general_schedule_id = None
-
-        st.session_state.selected_calendar_date = query_date.isoformat()
-        st.session_state.calendar_year = query_date.year
-        st.session_state.calendar_month = query_date.month
+    st.session_state.setdefault("calendar_year", today.year)
+    st.session_state.setdefault("calendar_month", today.month)
+    st.session_state.setdefault("selected_calendar_date", today.isoformat())
+    st.session_state.setdefault("editing_general_schedule_id", None)
 
 
 def _get_selected_date():
-    selected = st.session_state.get("selected_calendar_date")
-    parsed = _parse_date(selected)
-
-    if parsed:
-        return parsed
-
-    return date.today()
+    return _parse_date(st.session_state.get("selected_calendar_date")) or date.today()
 
 
 def _set_selected_date(selected_date):
@@ -123,80 +57,48 @@ def _set_selected_date(selected_date):
     st.session_state.calendar_year = selected_date.year
     st.session_state.calendar_month = selected_date.month
     st.session_state.editing_general_schedule_id = None
-    _set_query_calendar_date(selected_date)
 
 
-def _group_customer_actions_by_day(customer_actions):
+def _group_by_day(items, date_key):
     grouped = defaultdict(list)
 
-    for action in customer_actions:
-        action_date = _parse_date(action.get("next_action_date"))
+    for item in items:
+        item_date = _parse_date(item.get(date_key))
 
-        if action_date:
-            grouped[action_date.day].append(action)
+        if item_date:
+            grouped[item_date.day].append(item)
 
     return grouped
 
 
-def _group_general_schedules_by_day(general_schedules):
-    grouped = defaultdict(list)
-
-    for schedule in general_schedules:
-        schedule_date = _parse_date(schedule.get("schedule_date"))
-
-        if schedule_date:
-            grouped[schedule_date.day].append(schedule)
-
-    return grouped
-
-
-def _get_customer_actions_for_date(customer_actions, target_date):
+def _items_for_date(items, date_key, target_date):
     result = []
 
-    for action in customer_actions:
-        action_date = _parse_date(action.get("next_action_date"))
+    for item in items:
+        item_date = _parse_date(item.get(date_key))
 
-        if action_date == target_date:
-            result.append(action)
+        if item_date == target_date:
+            result.append(item)
 
     return result
 
 
-def _get_general_schedules_for_date(general_schedules, target_date):
-    result = []
-
-    for schedule in general_schedules:
-        schedule_date = _parse_date(schedule.get("schedule_date"))
-
-        if schedule_date == target_date:
-            result.append(schedule)
-
-    return result
+def _count_by_status(customers, keyword):
+    return sum(1 for customer in customers if keyword in str(customer.get("status", "")))
 
 
 def _render_month_selector():
-    _init_calendar_state()
-
     left, center, right = st.columns([0.18, 0.64, 0.18])
 
     with left:
-        if st.button(
-            "◀ 이전달",
-            use_container_width=True,
-            key="calendar_prev_month",
-        ):
+        if st.button("◀ 이전달", use_container_width=True, key="calendar_prev_month"):
             if st.session_state.calendar_month == 1:
-                st.session_state.calendar_month = 12
                 st.session_state.calendar_year -= 1
+                st.session_state.calendar_month = 12
             else:
                 st.session_state.calendar_month -= 1
 
-            first_day = date(
-                st.session_state.calendar_year,
-                st.session_state.calendar_month,
-                1,
-            )
-            _set_selected_date(first_day)
+            _set_selected_date(date(st.session_state.calendar_year, st.session_state.calendar_month, 1))
             st.rerun()
 
     with center:
@@ -206,29 +108,20 @@ def _render_month_selector():
         )
 
     with right:
-        if st.button(
-            "다음달 ▶",
-            use_container_width=True,
-            key="calendar_next_month",
-        ):
+        if st.button("다음달 ▶", use_container_width=True, key="calendar_next_month"):
             if st.session_state.calendar_month == 12:
-                st.session_state.calendar_month = 1
                 st.session_state.calendar_year += 1
+                st.session_state.calendar_month = 1
             else:
                 st.session_state.calendar_month += 1
 
-            first_day = date(
-                st.session_state.calendar_year,
-                st.session_state.calendar_month,
-                1,
-            )
-            _set_selected_date(first_day)
+            _set_selected_date(date(st.session_state.calendar_year, st.session_state.calendar_month, 1))
             st.rerun()
 
     return st.session_state.calendar_year, st.session_state.calendar_month
 
 
-def _collect_upcoming_items(customer_actions, general_schedules):
+def _get_upcoming_items(customer_actions, general_schedules):
     today = date.today()
     items = []
 
@@ -254,468 +147,204 @@ def _collect_upcoming_items(customer_actions, general_schedules):
                 "desc": _safe_text(schedule.get("content"), ""),
             })
 
-    items = sorted(items, key=lambda item: item["date"])
-
-    return items[:4]
-
-
-def _build_upcoming_board_html(customer_actions, general_schedules):
-    upcoming_items = _collect_upcoming_items(customer_actions, general_schedules)
-
-    if not upcoming_items:
-        item_html = """
-        <div class="upcoming-empty">
-            다가오는 일정이 없습니다.
-        </div>
-        """
-    else:
-        item_parts = []
-
-        for item in upcoming_items:
-            item_date = item["date"]
-            item_type = html.escape(item["type"])
-            item_title = html.escape(item["title"])
-            item_desc = html.escape(item["desc"])
-
-            type_class = "customer"
-
-            if item["type"] == "일반":
-                type_class = "general"
-
-            desc_html = ""
-
-            if item_desc:
-                desc_html = f'<div class="upcoming-desc">{item_desc}</div>'
-
-            item_parts.append(
-                f"""
-                <div class="upcoming-item">
-                    <div class="upcoming-date">
-                        <div class="upcoming-day">{item_date.day}</div>
-                        <div class="upcoming-month">{item_date.month}월</div>
-                    </div>
-                    <div class="upcoming-body">
-                        <div class="upcoming-top">
-                            <span class="upcoming-type {type_class}">{item_type}</span>
-                            <span class="upcoming-title">{item_title}</span>
-                        </div>
-                        {desc_html}
-                    </div>
-                </div>
-                """
-            )
-
-        item_html = "".join(item_parts)
-
-    return f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            * {{
-                box-sizing: border-box;
-            }}
-
-            body {{
-                margin: 0;
-                padding: 0;
-                background: transparent;
-                font-family:
-                    -apple-system,
-                    BlinkMacSystemFont,
-                    "Segoe UI",
-                    sans-serif;
-            }}
-
-            .upcoming-board {{
-                width: 100%;
-                min-height: 150px;
-                background: rgba(15, 23, 42, 0.62);
-                border: 1px solid rgba(255, 255, 255, 0.10);
-                border-radius: 24px;
-                padding: 24px 28px;
-                box-shadow: 0 18px 60px rgba(0, 0, 0, 0.22);
-            }}
-
-            .upcoming-board-title {{
-                color: #F8FAFC;
-                text-align: center;
-                font-size: 34px;
-                line-height: 1.1;
-                font-weight: 850;
-                letter-spacing: -0.06em;
-                margin-bottom: 18px;
-            }}
-
-            .upcoming-content {{
-                display: grid;
-                grid-template-columns: repeat(4, minmax(0, 1fr));
-                gap: 12px;
-            }}
-
-            .upcoming-empty {{
-                color: #94A3B8;
-                text-align: center;
-                grid-column: 1 / -1;
-                padding: 16px;
-                font-size: 16px;
-            }}
-
-            .upcoming-item {{
-                display: flex;
-                align-items: center;
-                gap: 12px;
-                background: rgba(255, 255, 255, 0.055);
-                border: 1px solid rgba(255, 255, 255, 0.10);
-                border-radius: 18px;
-                padding: 13px;
-                min-width: 0;
-            }}
-
-            .upcoming-date {{
-                width: 48px;
-                height: 48px;
-                border-radius: 16px;
-                background: linear-gradient(135deg, rgba(91, 140, 255, 0.28), rgba(124, 92, 255, 0.18));
-                border: 1px solid rgba(255, 255, 255, 0.10);
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                flex-shrink: 0;
-            }}
-
-            .upcoming-day {{
-                color: #F8FAFC;
-                font-size: 18px;
-                font-weight: 900;
-                line-height: 1;
-            }}
-
-            .upcoming-month {{
-                color: #CBD5E1;
-                font-size: 11px;
-                margin-top: 3px;
-            }}
-
-            .upcoming-body {{
-                min-width: 0;
-            }}
-
-            .upcoming-top {{
-                display: flex;
-                gap: 6px;
-                align-items: center;
-                margin-bottom: 4px;
-                min-width: 0;
-            }}
-
-            .upcoming-type {{
-                display: inline-block;
-                border-radius: 999px;
-                padding: 3px 7px;
-                font-size: 10px;
-                font-weight: 900;
-                flex-shrink: 0;
-            }}
-
-            .upcoming-type.customer {{
-                color: #BFDBFE;
-                background: rgba(59, 130, 246, 0.20);
-            }}
-
-            .upcoming-type.general {{
-                color: #BBF7D0;
-                background: rgba(34, 197, 94, 0.20);
-            }}
-
-            .upcoming-title {{
-                color: #F8FAFC;
-                font-size: 14px;
-                font-weight: 850;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-            }}
-
-            .upcoming-desc {{
-                color: #94A3B8;
-                font-size: 12px;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-            }}
-
-            @media screen and (max-width: 1000px) {{
-                .upcoming-content {{
-                    grid-template-columns: repeat(2, minmax(0, 1fr));
-                }}
-            }}
-
-            @media screen and (max-width: 640px) {{
-                .upcoming-content {{
-                    grid-template-columns: 1fr;
-                }}
-
-                .upcoming-board-title {{
-                    font-size: 28px;
-                }}
-            }}
-        </style>
-    </head>
-    <body>
-        <div class="upcoming-board">
-            <div class="upcoming-board-title">다가오는 일정</div>
-            <div class="upcoming-content">
-                {item_html}
-            </div>
-        </div>
-    </body>
-    </html>
-    """
+    return sorted(items, key=lambda item: item["date"])[:4]
 
 
 def _render_upcoming_board(customer_actions, general_schedules):
-    upcoming_html = _build_upcoming_board_html(
-        customer_actions,
-        general_schedules,
-    )
+    items = _get_upcoming_items(customer_actions, general_schedules)
 
-    components.html(
-        upcoming_html,
-        height=210,
-        scrolling=False,
-    )
-
-
-def _render_calendar_event_chip(event_type, title, desc=""):
-    safe_type = _safe_html(event_type)
-    safe_title = _safe_html(title)
-    safe_desc = _safe_html(desc, "")
-
-    if event_type == "고객":
-        bg = "rgba(59, 130, 246, 0.16)"
-        border = "rgba(96, 165, 250, 0.30)"
+    if not items:
+        body = '<div class="home-upcoming-empty">다가오는 일정이 없습니다.</div>'
     else:
-        bg = "rgba(34, 197, 94, 0.15)"
-        border = "rgba(74, 222, 128, 0.28)"
+        parts = []
 
-    desc_html = ""
+        for item in items:
+            item_type = _safe_html(item["type"])
+            item_title = _safe_html(item["title"])
+            item_desc = _safe_html(item["desc"], "")
+            chip_class = "home-chip-customer" if item["type"] == "고객" else "home-chip-general"
 
-    if safe_desc:
-        desc_html = (
-            f'<div style="color:#CBD5E1;font-size:10px;'
-            f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
-            f'{safe_desc}</div>'
-        )
+            desc_html = ""
+            if item_desc:
+                desc_html = f'<div class="home-upcoming-desc">{item_desc}</div>'
+
+            parts.append(
+                '<div class="home-upcoming-item">'
+                '<div class="home-upcoming-date">'
+                f'<div class="home-upcoming-day">{item["date"].day}</div>'
+                f'<div class="home-upcoming-month">{item["date"].month}월</div>'
+                '</div>'
+                '<div class="home-upcoming-body">'
+                '<div class="home-upcoming-top">'
+                f'<span class="home-chip-type {chip_class}">{item_type}</span>'
+                f'<span class="home-upcoming-name">{item_title}</span>'
+                '</div>'
+                f'{desc_html}'
+                '</div>'
+                '</div>'
+            )
+
+        body = "".join(parts)
 
     st.markdown(
         (
-            f'<div style="background:{bg};border:1px solid {border};'
-            f'border-radius:12px;padding:5px 7px;margin-top:5px;">'
-            f'<div style="display:inline-block;color:#F8FAFC;'
-            f'background:rgba(255,255,255,0.13);border-radius:999px;'
-            f'padding:2px 6px;font-size:9px;font-weight:900;margin-bottom:2px;">'
-            f'{safe_type}</div>'
-            f'<div style="color:#F8FAFC;font-size:11px;font-weight:800;'
-            f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
-            f'{safe_title}</div>'
-            f'{desc_html}'
-            f'</div>'
+            '<div class="home-upcoming-board">'
+            '<div class="home-upcoming-title">다가오는 일정</div>'
+            f'<div class="home-upcoming-grid">{body}</div>'
+            '</div>'
         ),
         unsafe_allow_html=True,
     )
 
 
-def _render_calendar_day_cell(
-    year,
-    month,
-    day,
-    selected_date,
-    today,
-    customer_grouped,
-    general_grouped,
-):
-    current_date = date(year, month, day)
+def _render_calendar_chip(event_type, title, desc=""):
+    chip_class = "customer" if event_type == "고객" else "general"
+    type_class = "home-chip-customer" if event_type == "고객" else "home-chip-general"
 
-    day_customer_actions = customer_grouped.get(day, [])
-    day_general_schedules = general_grouped.get(day, [])
+    desc_html = ""
+    safe_desc = _safe_html(desc, "")
 
-    is_selected = selected_date == current_date
-    is_today = today == current_date
+    if safe_desc:
+        desc_html = f'<div class="home-calendar-event-desc">{safe_desc}</div>'
 
-    label_parts = [f"{day}"]
+    st.markdown(
+        (
+            f'<div class="home-calendar-event {chip_class}">'
+            f'<span class="home-chip-type {type_class}">{_safe_html(event_type)}</span>'
+            f'<div class="home-calendar-event-title">{_safe_html(title)}</div>'
+            f'{desc_html}'
+            '</div>'
+        ),
+        unsafe_allow_html=True,
+    )
+
+
+def _day_button_label(day, is_today, is_selected, customer_count, general_count):
+    parts = [str(day)]
 
     if is_today:
-        label_parts.append("오늘")
+        parts.append("오늘")
 
     if is_selected:
-        label_parts.append("선택")
+        parts.append("선택")
 
-    count_parts = []
+    counts = []
 
-    if day_customer_actions:
-        count_parts.append(f"고객 {len(day_customer_actions)}")
+    if customer_count:
+        counts.append(f"고객 {customer_count}")
 
-    if day_general_schedules:
-        count_parts.append(f"일반 {len(day_general_schedules)}")
+    if general_count:
+        counts.append(f"일반 {general_count}")
 
-    if count_parts:
-        label_parts.append(" / ".join(count_parts))
+    if counts:
+        parts.append(" / ".join(counts))
 
-    button_label = " · ".join(label_parts)
+    return " · ".join(parts)
 
-    if st.button(
-        button_label,
-        key=f"calendar_native_day_{year}_{month}_{day}",
-        use_container_width=True,
-    ):
+
+def _render_day_cell(year, month, day, selected_date, customer_grouped, general_grouped):
+    current_date = date(year, month, day)
+    today = date.today()
+
+    customer_items = customer_grouped.get(day, [])
+    general_items = general_grouped.get(day, [])
+
+    label = _day_button_label(
+        day=day,
+        is_today=current_date == today,
+        is_selected=current_date == selected_date,
+        customer_count=len(customer_items),
+        general_count=len(general_items),
+    )
+
+    if st.button(label, key=f"calendar_day_{year}_{month}_{day}", use_container_width=True):
         _set_selected_date(current_date)
         st.rerun()
 
-    for action in day_customer_actions[:2]:
-        _render_calendar_event_chip(
-            "고객",
-            action.get("customer_name"),
-            action.get("next_action"),
-        )
+    for action in customer_items[:2]:
+        _render_calendar_chip("고객", action.get("customer_name"), action.get("next_action"))
 
-    for schedule in day_general_schedules[:2]:
-        _render_calendar_event_chip(
-            "일반",
-            schedule.get("title"),
-            "",
-        )
+    for schedule in general_items[:2]:
+        _render_calendar_chip("일반", schedule.get("title"))
 
-    total_count = len(day_customer_actions) + len(day_general_schedules)
-    shown_count = min(len(day_customer_actions), 2) + min(len(day_general_schedules), 2)
+    hidden_count = len(customer_items) + len(general_items) - min(len(customer_items), 2) - min(len(general_items), 2)
 
-    if total_count > shown_count:
-        st.caption(f"+{total_count - shown_count}건 더 있음")
+    if hidden_count > 0:
+        st.caption(f"+{hidden_count}건 더 있음")
 
 
 def _render_calendar(year, month, customer_actions, general_schedules):
-    customer_grouped = _group_customer_actions_by_day(customer_actions)
-    general_grouped = _group_general_schedules_by_day(general_schedules)
-
     selected_date = _get_selected_date()
-    today = date.today()
+    customer_grouped = _group_by_day(customer_actions, "next_action_date")
+    general_grouped = _group_by_day(general_schedules, "schedule_date")
 
-    cal = calendar.Calendar(firstweekday=6)
-    weeks = cal.monthdayscalendar(year, month)
+    st.markdown('<div class="home-calendar-shell">', unsafe_allow_html=True)
 
-    st.markdown(
-        """
-        <div style="
-            background: rgba(15, 23, 42, 0.62);
-            border: 1px solid rgba(255,255,255,0.10);
-            border-radius: 24px;
-            padding: 18px;
-            box-shadow: 0 18px 60px rgba(0,0,0,0.22);
-        ">
-        """,
-        unsafe_allow_html=True,
-    )
+    for col, weekday in zip(st.columns(7), ["일", "월", "화", "수", "목", "금", "토"]):
+        with col:
+            st.markdown(f'<div class="home-weekday">{weekday}</div>', unsafe_allow_html=True)
 
-    weekday_cols = st.columns(7)
-
-    weekdays = ["일", "월", "화", "수", "목", "금", "토"]
-
-    for index, weekday in enumerate(weekdays):
-        with weekday_cols[index]:
-            st.markdown(
-                f"""
-                <div style="
-                    color:#CBD5E1;
-                    font-size:13px;
-                    font-weight:850;
-                    text-align:center;
-                    padding:8px 0 10px 0;
-                ">
-                    {weekday}
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-    for week_index, week in enumerate(weeks):
+    for week in calendar.Calendar(firstweekday=6).monthdayscalendar(year, month):
         cols = st.columns(7)
 
-        for day_index, day in enumerate(week):
-            with cols[day_index]:
+        for col, day in zip(cols, week):
+            with col:
                 if day == 0:
-                    st.markdown(
-                        """
-                        <div style="
-                            min-height:122px;
-                            border-radius:18px;
-                            background:rgba(255,255,255,0.025);
-                            opacity:0.25;
-                            margin-bottom:10px;
-                        "></div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
-                    continue
+                    st.markdown('<div class="home-empty-day"></div>', unsafe_allow_html=True)
+                else:
+                    with st.container(border=True):
+                        _render_day_cell(
+                            year=year,
+                            month=month,
+                            day=day,
+                            selected_date=selected_date,
+                            customer_grouped=customer_grouped,
+                            general_grouped=general_grouped,
+                        )
 
-                with st.container(border=True):
-                    _render_calendar_day_cell(
-                        year,
-                        month,
-                        day,
-                        selected_date,
-                        today,
-                        customer_grouped,
-                        general_grouped,
-                    )
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown(
-        """
-        </div>
-        """,
-        unsafe_allow_html=True,
+
+def _schedule_card(schedule_type, title, desc="", meta=""):
+    card_class = "home-schedule-customer" if schedule_type == "고객" else "home-schedule-general"
+    chip_class = "home-chip-customer" if schedule_type == "고객" else "home-chip-general"
+
+    desc_html = f'<div class="home-schedule-desc">{_safe_html(desc)}</div>' if desc else ""
+    meta_html = f'<div class="home-schedule-meta">{_safe_html(meta)}</div>' if meta else ""
+
+    return (
+        f'<div class="home-schedule-item {card_class}">'
+        f'<span class="home-chip-type {chip_class}">{_safe_html(schedule_type)}</span>'
+        f'<div class="home-schedule-title">{_safe_html(title)}</div>'
+        f'{desc_html}'
+        f'{meta_html}'
+        '</div>'
     )
 
 
-def _render_schedule_summary_box(selected_customer_actions, selected_general_schedules):
-    customer_html = ""
-
-    if selected_customer_actions:
-        for action in selected_customer_actions:
-            customer_name = _safe_html(action.get("customer_name"), "고객명 없음")
-            next_action = _safe_html(action.get("next_action"), "상담 예정")
-            customer_phone = _safe_html(action.get("customer_phone"), "연락처 없음")
-
-            customer_html += (
-                '<div class="home-schedule-item home-schedule-customer">'
-                '<div class="home-schedule-type">고객</div>'
-                f'<div class="home-schedule-title">{customer_name}</div>'
-                f'<div class="home-schedule-desc">{next_action}</div>'
-                f'<div class="home-schedule-meta">{customer_phone}</div>'
-                '</div>'
+def _render_schedule_summary(customer_items, general_items):
+    if customer_items:
+        customer_html = "".join(
+            _schedule_card(
+                "고객",
+                action.get("customer_name"),
+                action.get("next_action"),
+                action.get("customer_phone"),
             )
+            for action in customer_items
+        )
     else:
         customer_html = '<div class="home-schedule-empty">고객일정 없음</div>'
 
-    general_html = ""
-
-    if selected_general_schedules:
-        for schedule in selected_general_schedules:
-            title = _safe_html(schedule.get("title"), "일반일정")
-            content = _safe_html(schedule.get("content"), "")
-
-            content_html = ""
-
-            if content:
-                content_html = f'<div class="home-schedule-desc">{content}</div>'
-
-            general_html += (
-                '<div class="home-schedule-item home-schedule-general">'
-                '<div class="home-schedule-type">일반</div>'
-                f'<div class="home-schedule-title">{title}</div>'
-                f'{content_html}'
-                '</div>'
+    if general_items:
+        general_html = "".join(
+            _schedule_card(
+                "일반",
+                schedule.get("title"),
+                schedule.get("content"),
             )
+            for schedule in general_items
+        )
     else:
         general_html = '<div class="home-schedule-empty">일반일정 없음</div>'
 
@@ -731,13 +360,13 @@ def _render_schedule_summary_box(selected_customer_actions, selected_general_sch
     )
 
 
-def _render_customer_schedule_buttons(selected_customer_actions):
-    if not selected_customer_actions:
+def _render_customer_edit_buttons(customer_items):
+    if not customer_items:
         return
 
     render_section_title("고객일정 수정")
 
-    for action in selected_customer_actions:
+    for action in customer_items:
         customer_name = _safe_text(action.get("customer_name"), "고객명 없음")
 
         if st.button(
@@ -749,36 +378,32 @@ def _render_customer_schedule_buttons(selected_customer_actions):
             st.switch_page("pages/4_상담이력.py")
 
 
-def _render_general_schedule_list(selected_general_schedules):
-    if not selected_general_schedules:
+def _find_schedule(schedules, schedule_id):
+    for schedule in schedules:
+        if schedule.get("id") == schedule_id:
+            return schedule
+
+    return None
+
+
+def _render_general_schedule_buttons(general_items):
+    if not general_items:
         return
 
     render_section_title("일반일정 관리")
 
-    for schedule in selected_general_schedules:
+    for schedule in general_items:
         title = _safe_text(schedule.get("title"), "일반일정")
-
         col_edit, col_delete = st.columns(2)
 
         with col_edit:
-            if st.button(
-                f"{title} 수정",
-                key=f"edit_general_schedule_{schedule.get('id')}",
-                use_container_width=True,
-            ):
+            if st.button(f"{title} 수정", key=f"edit_general_{schedule.get('id')}", use_container_width=True):
                 st.session_state.editing_general_schedule_id = schedule.get("id")
                 st.rerun()
 
         with col_delete:
-            if st.button(
-                "삭제",
-                key=f"delete_general_schedule_{schedule.get('id')}",
-                use_container_width=True,
-            ):
-                deleted = delete_general_schedule(
-                    schedule.get("id"),
-                    st.session_state.user,
-                )
+            if st.button("삭제", key=f"delete_general_{schedule.get('id')}", use_container_width=True):
+                deleted = delete_general_schedule(schedule.get("id"), st.session_state.user)
 
                 if deleted:
                     st.success("일반일정이 삭제되었습니다.")
@@ -788,120 +413,74 @@ def _render_general_schedule_list(selected_general_schedules):
                     st.error("삭제 권한이 없거나 일정을 찾을 수 없습니다.")
 
 
-def _find_general_schedule(general_schedules, schedule_id):
-    for schedule in general_schedules:
-        if schedule.get("id") == schedule_id:
-            return schedule
-
-    return None
-
-
-def _render_general_schedule_form(user, selected_date, selected_general_schedules):
+def _render_general_schedule_form(user, selected_date, general_items):
     editing_id = st.session_state.get("editing_general_schedule_id")
-    editing_schedule = None
+    editing_schedule = _find_schedule(general_items, editing_id) if editing_id else None
 
-    if editing_id:
-        editing_schedule = _find_general_schedule(
-            selected_general_schedules,
-            editing_id,
-        )
+    form_title = "일반일정 수정" if editing_schedule else "일반일정 입력 / 저장"
+    button_label = "수정 저장" if editing_schedule else "저장"
+    form_key = f"general_schedule_form_{editing_id or selected_date.isoformat()}"
+
+    default_date = selected_date
+    default_title = ""
+    default_content = ""
 
     if editing_schedule:
-        form_title = "일반일정 수정"
+        default_date = _parse_date(editing_schedule.get("schedule_date")) or selected_date
         default_title = _safe_text(editing_schedule.get("title"), "")
         default_content = _safe_text(editing_schedule.get("content"), "")
-        default_date = _parse_date(editing_schedule.get("schedule_date")) or selected_date
-        button_label = "수정 저장"
-        form_key = f"general_schedule_edit_form_{editing_id}"
-        show_cancel = True
-    else:
-        form_title = "일반일정 입력 / 저장"
-        default_title = ""
-        default_content = ""
-        default_date = selected_date
-        button_label = "저장"
-        form_key = f"general_schedule_add_form_{selected_date.isoformat()}"
-        show_cancel = False
 
-    st.markdown(
-        f'<div class="home-right-form-title">{form_title}</div>',
-        unsafe_allow_html=True,
-    )
+    st.markdown(f'<div class="home-right-form-title">{form_title}</div>', unsafe_allow_html=True)
 
     with st.form(form_key):
-        schedule_date = st.date_input(
-            "일정 날짜",
-            value=default_date,
-            key=f"{form_key}_date",
-        )
+        schedule_date = st.date_input("일정 날짜", value=default_date, key=f"{form_key}_date")
+        title = st.text_input("일정 제목", value=default_title, placeholder="예: 지점 회의, 고객자료 정리", key=f"{form_key}_title")
+        content = st.text_area("일정 내용", value=default_content, placeholder="일정 상세 내용을 입력하세요.", height=110, key=f"{form_key}_content")
 
-        title = st.text_input(
-            "일정 제목",
-            value=default_title,
-            placeholder="예: 지점 회의, 고객자료 정리, 교육 참석",
-            key=f"{form_key}_title",
-        )
-
-        content = st.text_area(
-            "일정 내용",
-            value=default_content,
-            placeholder="일정 상세 내용을 입력하세요.",
-            height=110,
-            key=f"{form_key}_content",
-        )
-
-        if show_cancel:
+        if editing_schedule:
             col_save, col_cancel = st.columns(2)
 
             with col_save:
-                submitted = st.form_submit_button(
-                    button_label,
-                    use_container_width=True,
-                )
+                submitted = st.form_submit_button(button_label, use_container_width=True)
 
             with col_cancel:
-                cancel = st.form_submit_button(
-                    "취소",
-                    use_container_width=True,
-                )
+                cancel = st.form_submit_button("취소", use_container_width=True)
         else:
-            submitted = st.form_submit_button(
-                button_label,
-                use_container_width=True,
-            )
+            submitted = st.form_submit_button(button_label, use_container_width=True)
             cancel = False
 
         if submitted:
             if not title.strip():
                 st.warning("일정 제목을 입력하세요.")
+                return
+
+            if editing_schedule:
+                ok = update_general_schedule(
+                    schedule_id=editing_id,
+                    user=user,
+                    schedule_date=str(schedule_date),
+                    title=title.strip(),
+                    content=content.strip(),
+                )
+
+                if not ok:
+                    st.error("수정 권한이 없거나 일정을 찾을 수 없습니다.")
+                    return
+
+                st.success("일반일정이 수정되었습니다.")
             else:
-                if editing_schedule:
-                    updated = update_general_schedule(
-                        schedule_id=editing_id,
-                        user=user,
-                        schedule_date=str(schedule_date),
-                        title=title.strip(),
-                        content=content.strip(),
-                    )
+                add_general_schedule(
+                    user_id=user["id"],
+                    schedule_date=str(schedule_date),
+                    title=title.strip(),
+                    content=content.strip(),
+                )
 
-                    if updated:
-                        st.success("일반일정이 수정되었습니다.")
-                        st.session_state.editing_general_schedule_id = None
-                        _set_selected_date(schedule_date)
-                        st.rerun()
-                    else:
-                        st.error("수정 권한이 없거나 일정을 찾을 수 없습니다.")
-                else:
-                    add_general_schedule(
-                        user_id=user["id"],
-                        schedule_date=str(schedule_date),
-                        title=title.strip(),
-                        content=content.strip(),
-                    )
+                st.success("일반일정이 추가되었습니다.")
 
-                    st.success("일반일정이 추가되었습니다.")
-                    _set_selected_date(schedule_date)
-                    st.rerun()
+            st.session_state.editing_general_schedule_id = None
+            _set_selected_date(schedule_date)
+            st.rerun()
 
         if cancel:
             st.session_state.editing_general_schedule_id = None
@@ -911,14 +490,8 @@ def _render_general_schedule_form(user, selected_date, selected_general_schedule
 def _render_selected_day_panel(user, customer_actions, general_schedules):
     selected_date = _get_selected_date()
 
-    selected_customer_actions = _get_customer_actions_for_date(
-        customer_actions,
-        selected_date,
-    )
-    selected_general_schedules = _get_general_schedules_for_date(
-        general_schedules,
-        selected_date,
-    )
+    customer_items = _items_for_date(customer_actions, "next_action_date", selected_date)
+    general_items = _items_for_date(general_schedules, "schedule_date", selected_date)
 
     st.markdown(
         (
@@ -928,36 +501,17 @@ def _render_selected_day_panel(user, customer_actions, general_schedules):
         unsafe_allow_html=True,
     )
 
-    _render_schedule_summary_box(
-        selected_customer_actions,
-        selected_general_schedules,
-    )
-
+    _render_schedule_summary(customer_items, general_items)
+    _render_customer_edit_buttons(customer_items)
+    _render_general_schedule_buttons(general_items)
     st.markdown("<br>", unsafe_allow_html=True)
-
-    _render_customer_schedule_buttons(selected_customer_actions)
-
-    _render_general_schedule_list(selected_general_schedules)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    _render_general_schedule_form(
-        user,
-        selected_date,
-        selected_general_schedules,
-    )
+    _render_general_schedule_form(user, selected_date, general_items)
 
 
 def home_page(user):
-    inject_global_css()
-
     _init_calendar_state()
 
     customers = get_customers(user)
-
-    total_customers = len(customers)
-    active_customers = _count_by_status(customers, "진행")
-
     year, month = _render_month_selector()
 
     customer_actions = get_month_next_actions(user, year, month)
@@ -968,48 +522,23 @@ def home_page(user):
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        render_metric_card(
-            label="전체 고객",
-            value=total_customers,
-            desc="등록된 고객 수",
-        )
+        render_metric_card("전체 고객", len(customers), "등록된 고객 수")
 
     with col2:
-        render_metric_card(
-            label="고객일정",
-            value=len(customer_actions),
-            desc="상담 이력 기준",
-        )
+        render_metric_card("고객일정", len(customer_actions), "상담 이력 기준")
 
     with col3:
-        render_metric_card(
-            label="일반일정",
-            value=len(general_schedules),
-            desc="직접 등록 일정",
-        )
+        render_metric_card("일반일정", len(general_schedules), "직접 등록 일정")
 
     with col4:
-        render_metric_card(
-            label="진행 고객",
-            value=active_customers,
-            desc="진행 상태 고객",
-        )
+        render_metric_card("진행 고객", _count_by_status(customers, "진행"), "진행 상태 고객")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
     left, right = st.columns([1.45, 0.95])
 
     with left:
-        _render_calendar(
-            year,
-            month,
-            customer_actions,
-            general_schedules,
-        )
+        _render_calendar(year, month, customer_actions, general_schedules)
 
     with right:
-        _render_selected_day_panel(
-            user,
-            customer_actions,
-            general_schedules,
-        )
+        _render_selected_day_panel(user, customer_actions, general_schedules)
