@@ -1,16 +1,37 @@
 import sqlite3
 import bcrypt
+import secrets
+from datetime import datetime, timedelta
 from pathlib import Path
-
-import streamlit as st
-import streamlit_authenticator as stauth
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DB_PATH = BASE_DIR / "db" / "crm.db"
 
-COOKIE_NAME = "office_crm_auth"
-COOKIE_KEY = "office_crm_cookie_signature_key_v1"
-COOKIE_EXPIRY_DAYS = 30
+SESSION_DAYS = 30
+
+
+def get_conn():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def ensure_login_sessions_table():
+    conn = get_conn()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS login_sessions (
+            token TEXT PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            expires_at TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        )
+    """)
+
+    conn.commit()
+    conn.close()
 
 
 def create_user(username, password, name, role="staff"):
@@ -62,7 +83,7 @@ def verify_user(username, password):
 
 
 def get_user_by_username(username):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_conn()
     cursor = conn.cursor()
 
     cursor.execute("""
@@ -77,18 +98,11 @@ def get_user_by_username(username):
     if not user:
         return None
 
-    user_id, username, name, role = user
-
-    return {
-        "id": user_id,
-        "username": username,
-        "name": name,
-        "role": role
-    }
+    return dict(user)
 
 
 def get_user_by_id(user_id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_conn()
     cursor = conn.cursor()
 
     cursor.execute("""
@@ -103,19 +117,11 @@ def get_user_by_id(user_id):
     if not user:
         return None
 
-    user_id, username, name, role = user
-
-    return {
-        "id": user_id,
-        "username": username,
-        "name": name,
-        "role": role
-    }
+    return dict(user)
 
 
 def get_users():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = get_conn()
     cursor = conn.cursor()
 
     cursor.execute("""
@@ -135,98 +141,127 @@ def get_users():
     return [dict(row) for row in rows]
 
 
-def get_authenticator_credentials():
-    """
-    streamlit-authenticator가 사용할 credentials dict를 DB users 테이블에서 생성합니다.
-    기존 password_hash 값을 그대로 사용합니다.
-    """
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+def create_login_session(user_id):
+    ensure_login_sessions_table()
+
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.now() + timedelta(days=SESSION_DAYS)
+
+    conn = get_conn()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT INTO login_sessions
+        (token, user_id, expires_at)
+        VALUES (?, ?, ?)
+    """, (
+        token,
+        user_id,
+        expires_at.isoformat()
+    ))
+
+    conn.commit()
+    conn.close()
+
+    return token
+
+
+def get_user_by_session_token(token):
+    if not token:
+        return None
+
+    ensure_login_sessions_table()
+
+    conn = get_conn()
     cursor = conn.cursor()
 
     cursor.execute("""
         SELECT
-            username,
-            password_hash,
-            name
-        FROM users
-    """)
+            u.id,
+            u.username,
+            u.name,
+            u.role,
+            s.expires_at
+        FROM login_sessions s
+        JOIN users u ON u.id = s.user_id
+        WHERE s.token = ?
+    """, (token,))
 
-    rows = cursor.fetchall()
+    row = cursor.fetchone()
     conn.close()
 
-    credentials = {
-        "usernames": {}
+    if not row:
+        return None
+
+    expires_at = datetime.fromisoformat(row["expires_at"])
+
+    if expires_at < datetime.now():
+        delete_login_session(token)
+        return None
+
+    return {
+        "id": row["id"],
+        "username": row["username"],
+        "name": row["name"],
+        "role": row["role"]
     }
 
-    for row in rows:
-        username = row["username"]
 
-        credentials["usernames"][username] = {
-            "name": row["name"],
-            "password": row["password_hash"]
-        }
+def delete_login_session(token):
+    if not token:
+        return
 
-    return credentials
+    ensure_login_sessions_table()
 
+    conn = get_conn()
+    cursor = conn.cursor()
 
-def make_authenticator():
-    """
-    모든 페이지에서 동일한 설정으로 authenticator를 생성합니다.
-    """
-    credentials = get_authenticator_credentials()
+    cursor.execute("""
+        DELETE FROM login_sessions
+        WHERE token = ?
+    """, (token,))
 
-    authenticator = stauth.Authenticate(
-        credentials,
-        COOKIE_NAME,
-        COOKIE_KEY,
-        COOKIE_EXPIRY_DAYS
-    )
-
-    st.session_state.authenticator = authenticator
-
-    return authenticator
+    conn.commit()
+    conn.close()
 
 
-def sync_user_from_authenticator():
-    """
-    streamlit-authenticator의 세션 상태를 기존 CRM의 st.session_state.user 구조로 맞춥니다.
-    """
-    auth_status = st.session_state.get("authentication_status")
-    username = st.session_state.get("username")
-
-    if auth_status is True and username:
-        user = get_user_by_username(username)
-
-        if user:
-            st.session_state.user = user
-            return True
-
-    if "user" not in st.session_state:
-        st.session_state.user = None
-
-    return False
-
-
-def restore_authentication():
-    """
-    새로고침 후 페이지가 직접 실행될 때도 쿠키 인증 복구를 시도합니다.
-
-    streamlit-authenticator는 login() 호출 시 쿠키를 확인해
-    st.session_state.authentication_status / username 값을 복구합니다.
-    """
-    authenticator = make_authenticator()
-
-    try:
-        authenticator.login(
-            location="unrendered"
-        )
-    except TypeError:
-        try:
-            authenticator.login("로그인", "main")
-        except Exception:
-            pass
-    except Exception:
+def restore_user_from_session():
+    if "user" not in st_session_keys():
         pass
 
-    return sync_user_from_authenticator()
+    token = None
+
+    try:
+        token = st_query_get("sid")
+    except Exception:
+        token = None
+
+    if not token:
+        return False
+
+    user = get_user_by_session_token(token)
+
+    if not user:
+        return False
+
+    import streamlit as st
+    st.session_state.user = user
+    st.session_state.session_token = token
+
+    return True
+
+
+def st_query_get(key):
+    import streamlit as st
+
+    value = st.query_params.get(key)
+
+    if isinstance(value, list):
+        return value[0] if value else None
+
+    return value
+
+
+def st_session_keys():
+    import streamlit as st
+    return st.session_state.keys()

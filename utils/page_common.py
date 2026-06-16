@@ -1,6 +1,9 @@
 import streamlit as st
 
-from utils.auth import restore_authentication
+from utils.auth import (
+    get_user_by_session_token,
+    delete_login_session,
+)
 
 
 def hide_default_streamlit_nav():
@@ -16,11 +19,42 @@ def hide_default_streamlit_nav():
     )
 
 
-def require_login():
-    if st.session_state.get("user") is not None:
-        return
+def get_sid_from_query():
+    sid = st.query_params.get("sid")
 
-    is_logged_in = restore_authentication()
+    if isinstance(sid, list):
+        return sid[0] if sid else None
+
+    return sid
+
+
+def restore_user_from_sid():
+    if st.session_state.get("user") is not None:
+        return True
+
+    sid = st.session_state.get("session_token") or get_sid_from_query()
+
+    if not sid:
+        return False
+
+    user = get_user_by_session_token(sid)
+
+    if not user:
+        return False
+
+    st.session_state.user = user
+    st.session_state.session_token = sid
+
+    try:
+        st.query_params["sid"] = sid
+    except Exception:
+        pass
+
+    return True
+
+
+def require_login():
+    is_logged_in = restore_user_from_sid()
 
     if not is_logged_in:
         st.warning("로그인이 필요합니다.")
@@ -58,10 +92,18 @@ def render_sidebar():
 
     st.sidebar.divider()
 
-    if "authenticator" in st.session_state:
-        st.session_state.authenticator.logout("로그아웃", "sidebar")
-    else:
-        if st.sidebar.button("로그아웃", width="stretch"):
-            st.session_state.user = None
-            st.session_state.authentication_status = None
-            st.switch_page("app.py")
+    if st.sidebar.button("로그아웃", width="stretch"):
+        sid = st.session_state.get("session_token") or get_sid_from_query()
+
+        if sid:
+            delete_login_session(sid)
+
+        st.session_state.user = None
+        st.session_state.session_token = None
+
+        try:
+            del st.query_params["sid"]
+        except Exception:
+            pass
+
+        st.switch_page("app.py")
