@@ -1,5 +1,7 @@
 import streamlit as st
 
+from utils.auth import restore_authentication
+
 
 def hide_default_streamlit_nav():
     st.markdown(
@@ -15,9 +17,12 @@ def hide_default_streamlit_nav():
 
 
 def require_login():
-    auth_status = st.session_state.get("authentication_status")
+    if st.session_state.get("user") is not None:
+        return
 
-    if auth_status is not True or st.session_state.get("user") is None:
+    is_logged_in = restore_authentication()
+
+    if not is_logged_in:
         st.warning("로그인이 필요합니다.")
         st.switch_page("app.py")
 

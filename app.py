@@ -1,9 +1,8 @@
 import streamlit as st
-import streamlit_authenticator as stauth
 
 from utils.auth import (
-    get_authenticator_credentials,
-    get_user_by_username,
+    make_authenticator,
+    sync_user_from_authenticator,
 )
 
 
@@ -11,11 +10,6 @@ st.set_page_config(
     page_title="사무실 CRM",
     layout="wide"
 )
-
-
-COOKIE_NAME = "office_crm_auth"
-COOKIE_KEY = "office_crm_cookie_signature_key_v1"
-COOKIE_EXPIRY_DAYS = 30
 
 
 def hide_sidebar_before_login():
@@ -32,37 +26,6 @@ def hide_sidebar_before_login():
         """,
         unsafe_allow_html=True
     )
-
-
-def make_authenticator():
-    credentials = get_authenticator_credentials()
-
-    authenticator = stauth.Authenticate(
-        credentials,
-        COOKIE_NAME,
-        COOKIE_KEY,
-        COOKIE_EXPIRY_DAYS
-    )
-
-    return authenticator
-
-
-def sync_user_from_authenticator():
-    """
-    streamlit-authenticator 인증 결과를 기존 CRM user 구조로 맞춥니다.
-    """
-    auth_status = st.session_state.get("authentication_status")
-    username = st.session_state.get("username")
-
-    if auth_status is True and username:
-        user = get_user_by_username(username)
-
-        if user:
-            st.session_state.user = user
-            return True
-
-    st.session_state.user = None
-    return False
 
 
 def login_page(authenticator):
@@ -94,7 +57,6 @@ def login_page(authenticator):
 
 def main():
     authenticator = make_authenticator()
-    st.session_state.authenticator = authenticator
 
     is_logged_in = sync_user_from_authenticator()
 
