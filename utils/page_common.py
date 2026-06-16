@@ -1,8 +1,8 @@
 import streamlit as st
 
 from utils.auth import (
-    get_user_by_session_token,
-    delete_login_session,
+    restore_remembered_login,
+    clear_remembered_login,
 )
 
 
@@ -19,42 +19,21 @@ def hide_default_streamlit_nav():
     )
 
 
-def get_sid_from_query():
-    sid = st.query_params.get("sid")
-
-    if isinstance(sid, list):
-        return sid[0] if sid else None
-
-    return sid
-
-
-def restore_user_from_sid():
+def restore_user():
     if st.session_state.get("user") is not None:
         return True
 
-    sid = st.session_state.get("session_token") or get_sid_from_query()
-
-    if not sid:
-        return False
-
-    user = get_user_by_session_token(sid)
+    user = restore_remembered_login()
 
     if not user:
         return False
 
     st.session_state.user = user
-    st.session_state.session_token = sid
-
-    try:
-        st.query_params["sid"] = sid
-    except Exception:
-        pass
-
     return True
 
 
 def require_login():
-    is_logged_in = restore_user_from_sid()
+    is_logged_in = restore_user()
 
     if not is_logged_in:
         st.warning("로그인이 필요합니다.")
@@ -93,17 +72,6 @@ def render_sidebar():
     st.sidebar.divider()
 
     if st.sidebar.button("로그아웃", width="stretch"):
-        sid = st.session_state.get("session_token") or get_sid_from_query()
-
-        if sid:
-            delete_login_session(sid)
-
+        clear_remembered_login()
         st.session_state.user = None
-        st.session_state.session_token = None
-
-        try:
-            del st.query_params["sid"]
-        except Exception:
-            pass
-
         st.switch_page("app.py")
