@@ -1,77 +1,137 @@
+import html
+
 import streamlit as st
 
-from utils.auth import (
-    restore_remembered_login,
-    clear_remembered_login,
-)
-
-
-def hide_default_streamlit_nav():
-    st.markdown(
-        """
-        <style>
-        [data-testid="stSidebarNav"] {
-            display: none;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+from utils.auth import restore_remembered_login, clear_remembered_login
+from utils.ui import get_current_theme, inject_global_css, render_theme_toggle
 
 
 def restore_user():
-    if st.session_state.get("user") is not None:
+    if st.session_state.get("user"):
         return True
 
     user = restore_remembered_login()
 
-    if not user:
-        return False
+    if user:
+        st.session_state.user = user
+        return True
 
-    st.session_state.user = user
-    return True
+    return False
 
 
 def require_login():
-    is_logged_in = restore_user()
+    if restore_user():
+        return
 
-    if not is_logged_in:
-        st.warning("로그인이 필요합니다.")
-        st.switch_page("app.py")
+    st.switch_page("app.py")
 
 
 def require_admin():
-    require_login()
+    user = st.session_state.get("user")
 
-    user = st.session_state.user
+    if not user:
+        st.switch_page("app.py")
+        return
 
-    if user["role"] != "admin":
+    if user.get("role") != "admin":
         st.error("관리자만 접근할 수 있습니다.")
         st.stop()
 
 
+def init_page_ui():
+    theme_mode = get_current_theme()
+    inject_global_css(theme_mode)
+
+    return theme_mode
+
+
 def render_sidebar():
-    hide_default_streamlit_nav()
+    user = st.session_state.get("user", {})
+    user_name = html.escape(str(user.get("name", "사용자")))
+    user_role = html.escape(str(user.get("role", "user")))
 
-    user = st.session_state.user
+    with st.sidebar:
+        st.markdown(
+            f"""
+            <div class="sidebar-profile-card">
+                <div class="sidebar-profile-title">Office CRM</div>
+                <div class="sidebar-profile-name">{user_name}</div>
+                <div class="sidebar-profile-role">{user_role}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-    st.sidebar.success(f"{user['name']}님")
-    st.sidebar.write(f"권한: {user['role']}")
+        st.markdown("<br>", unsafe_allow_html=True)
 
-    st.sidebar.divider()
+        st.markdown(
+            """
+            <div class="sidebar-section-title">메뉴</div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-    st.sidebar.page_link("pages/1_메인.py", label="메인")
-    st.sidebar.page_link("pages/2_고객등록.py", label="고객 등록")
-    st.sidebar.page_link("pages/3_고객리스트.py", label="고객 리스트")
-    st.sidebar.page_link("pages/4_상담이력.py", label="상담 이력")
+        st.page_link(
+            "pages/1_메인.py",
+            label="메인",
+            icon="🏠",
+        )
 
-    if user["role"] == "admin":
-        st.sidebar.divider()
-        st.sidebar.page_link("pages/7_직원관리.py", label="직원 관리")
+        st.page_link(
+            "pages/2_고객등록.py",
+            label="고객 등록",
+            icon="➕",
+        )
 
-    st.sidebar.divider()
+        st.page_link(
+            "pages/3_고객리스트.py",
+            label="고객 리스트",
+            icon="👥",
+        )
 
-    if st.sidebar.button("로그아웃", width="stretch"):
-        clear_remembered_login()
-        st.session_state.user = None
-        st.switch_page("app.py")
+        st.page_link(
+            "pages/4_상담이력.py",
+            label="상담 이력",
+            icon="📝",
+        )
+
+        if user.get("role") == "admin":
+            st.page_link(
+                "pages/7_직원관리.py",
+                label="직원 관리",
+                icon="⚙️",
+            )
+
+        st.markdown("---")
+
+        st.markdown(
+            """
+            <div class="sidebar-section-title">화면 설정</div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        render_theme_toggle(key="sidebar_theme_toggle")
+
+        st.markdown("---")
+
+        if st.button(
+            "로그아웃",
+            use_container_width=True,
+            key="sidebar_logout_button",
+        ):
+            clear_remembered_login()
+            st.session_state.user = None
+            st.switch_page("app.py")
+
+
+def render_view_header(title, subtitle=None):
+    from utils.ui import render_page_header
+
+    top_left, top_right = st.columns([0.82, 0.18])
+
+    with top_left:
+        render_page_header(title, subtitle)
+
+    with top_right:
+        render_theme_toggle(key=f"theme_toggle_{title}")

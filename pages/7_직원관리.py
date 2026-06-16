@@ -1,18 +1,24 @@
 import streamlit as st
 
-from utils.page_common import require_login, require_admin, render_sidebar
+from utils.page_common import (
+    require_login,
+    require_admin,
+    init_page_ui,
+    render_sidebar,
+)
 from views.user_manage import user_manage_page
 
 
 st.set_page_config(
     page_title="직원 관리",
-    layout="wide"
+    layout="wide",
 )
 
 
 def page():
     require_login()
     require_admin()
+    init_page_ui()
     render_sidebar()
 
     user_manage_page()
