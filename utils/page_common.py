@@ -96,10 +96,25 @@ def render_sidebar():
         )
 
         if user.get("role") == "admin":
+            st.markdown("---")
+
+            st.markdown(
+                """
+                <div class="sidebar-section-title">관리자 메뉴</div>
+                """,
+                unsafe_allow_html=True,
+            )
+
             st.page_link(
                 "pages/7_직원관리.py",
                 label="직원 관리",
                 icon="⚙️",
+            )
+
+            st.page_link(
+                "pages/10_인터페이스관리.py",
+                label="인터페이스 관리",
+                icon="🎨",
             )
 
         st.markdown("---")
