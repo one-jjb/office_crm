@@ -2,6 +2,33 @@ import html
 
 import streamlit as st
 
+from utils.ui_config import get_ui_settings_map
+
+
+def _hex_to_rgb(hex_color):
+    value = str(hex_color or "").strip().replace("#", "")
+
+    if len(value) != 6:
+        return None
+
+    try:
+        return (
+            int(value[0:2], 16),
+            int(value[2:4], 16),
+            int(value[4:6], 16),
+        )
+    except Exception:
+        return None
+
+
+def _rgba(hex_color, alpha, fallback):
+    rgb = _hex_to_rgb(hex_color)
+
+    if rgb is None:
+        return fallback
+
+    return f"rgba({rgb[0]}, {rgb[1]}, {rgb[2]}, {alpha})"
+
 
 def _get_theme_palette(theme_mode):
     if theme_mode == "light":
@@ -24,12 +51,6 @@ def _get_theme_palette(theme_mode):
             "input_bg": "rgba(255, 255, 255, 0.92)",
             "input_border": "rgba(15, 23, 42, 0.12)",
             "table_bg": "rgba(255, 255, 255, 0.70)",
-            "primary": "#5B8CFF",
-            "secondary": "#7C5CFF",
-            "customer_bg": "rgba(59, 130, 246, 0.12)",
-            "customer_border": "rgba(96, 165, 250, 0.28)",
-            "general_bg": "rgba(34, 197, 94, 0.12)",
-            "general_border": "rgba(74, 222, 128, 0.28)",
             "dash_border": "rgba(11, 37, 51, 0.50)",
         }
 
@@ -52,14 +73,15 @@ def _get_theme_palette(theme_mode):
         "input_bg": "rgba(255, 255, 255, 0.06)",
         "input_border": "rgba(255, 255, 255, 0.10)",
         "table_bg": "rgba(15, 23, 42, 0.42)",
-        "primary": "#5B8CFF",
-        "secondary": "#7C5CFF",
-        "customer_bg": "rgba(59, 130, 246, 0.13)",
-        "customer_border": "rgba(96, 165, 250, 0.28)",
-        "general_bg": "rgba(34, 197, 94, 0.13)",
-        "general_border": "rgba(74, 222, 128, 0.28)",
         "dash_border": "rgba(11, 37, 51, 0.88)",
     }
+
+
+def _get_number(settings, key, default):
+    try:
+        return int(float(settings.get(key, default)))
+    except Exception:
+        return default
 
 
 def get_current_theme():
@@ -89,6 +111,20 @@ def inject_global_css(theme_mode=None):
         theme_mode = get_current_theme()
 
     palette = _get_theme_palette(theme_mode)
+    settings = get_ui_settings_map()
+
+    primary = settings.get("primary_color", "#5B8CFF")
+    secondary = settings.get("secondary_color", "#7C5CFF")
+    customer = settings.get("customer_color", "#3B82F6")
+    general = settings.get("general_color", "#22C55E")
+
+    card_radius = _get_number(settings, "home_card_radius", 24)
+    day_min_height = _get_number(settings, "home_day_min_height", 122)
+
+    customer_bg = _rgba(customer, 0.13, "rgba(59, 130, 246, 0.13)")
+    customer_border = _rgba(customer, 0.30, "rgba(96, 165, 250, 0.30)")
+    general_bg = _rgba(general, 0.13, "rgba(34, 197, 94, 0.13)")
+    general_border = _rgba(general, 0.30, "rgba(74, 222, 128, 0.30)")
 
     st.markdown(
         f"""
@@ -135,7 +171,7 @@ def inject_global_css(theme_mode=None):
         }}
 
         a {{
-            color: {palette["primary"]};
+            color: {primary};
         }}
 
         hr {{
@@ -161,7 +197,11 @@ def inject_global_css(theme_mode=None):
 
         .sidebar-profile-card {{
             background:
-                linear-gradient(135deg, rgba(91, 140, 255, 0.18), rgba(124, 92, 255, 0.10)),
+                linear-gradient(
+                    135deg,
+                    {_rgba(primary, 0.18, "rgba(91, 140, 255, 0.18)")},
+                    {_rgba(secondary, 0.10, "rgba(124, 92, 255, 0.10)")}
+                ),
                 {palette["soft_bg"]};
             border: 1px solid rgba(148, 163, 184, 0.20);
             border-radius: 20px;
@@ -190,8 +230,8 @@ def inject_global_css(theme_mode=None):
             padding: 4px 9px;
             font-size: 11px;
             font-weight: 800;
-            background: rgba(91, 140, 255, 0.16);
-            color: {palette["secondary"]};
+            background: {_rgba(primary, 0.16, "rgba(91, 140, 255, 0.16)")};
+            color: {secondary};
         }}
 
         .sidebar-section-title {{
@@ -232,7 +272,7 @@ def inject_global_css(theme_mode=None):
         .crm-card {{
             background: {palette["card_bg"]};
             border: 1px solid {palette["card_border"]};
-            border-radius: 24px;
+            border-radius: {card_radius}px;
             padding: 24px;
             backdrop-filter: blur(18px);
             box-shadow: {palette["card_shadow"]};
@@ -262,7 +302,11 @@ def inject_global_css(theme_mode=None):
 
         .metric-card {{
             background:
-                linear-gradient(135deg, rgba(91, 140, 255, 0.18), rgba(124, 92, 255, 0.08)),
+                linear-gradient(
+                    135deg,
+                    {_rgba(primary, 0.18, "rgba(91, 140, 255, 0.18)")},
+                    {_rgba(secondary, 0.08, "rgba(124, 92, 255, 0.08)")}
+                ),
                 {palette["card_bg"]};
             border: 1px solid {palette["card_border"]};
             border-radius: 22px;
@@ -315,8 +359,8 @@ def inject_global_css(theme_mode=None):
         }}
 
         .customer-card-selected {{
-            border-color: rgba(91, 140, 255, 0.62);
-            box-shadow: 0 0 0 1px rgba(91, 140, 255, 0.28);
+            border-color: {_rgba(primary, 0.62, "rgba(91, 140, 255, 0.62)")};
+            box-shadow: 0 0 0 1px {_rgba(primary, 0.28, "rgba(91, 140, 255, 0.28)")};
         }}
 
         .recent-customer-left {{
@@ -330,13 +374,13 @@ def inject_global_css(theme_mode=None):
             width: 42px;
             height: 42px;
             border-radius: 15px;
-            background: linear-gradient(135deg, {palette["primary"]}, {palette["secondary"]});
+            background: linear-gradient(135deg, {primary}, {secondary});
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
             font-weight: 850;
-            box-shadow: 0 10px 26px rgba(91, 140, 255, 0.20);
+            box-shadow: 0 10px 26px {_rgba(primary, 0.20, "rgba(91, 140, 255, 0.20)")};
             flex-shrink: 0;
         }}
 
@@ -425,7 +469,7 @@ def inject_global_css(theme_mode=None):
         .home-upcoming-board {{
             background: {palette["card_bg"]};
             border: 1px solid {palette["card_border"]};
-            border-radius: 24px;
+            border-radius: {card_radius}px;
             padding: 24px 28px;
             box-shadow: {palette["card_shadow"]};
             margin: 14px 0 24px 0;
@@ -469,7 +513,11 @@ def inject_global_css(theme_mode=None):
             width: 48px;
             height: 48px;
             border-radius: 16px;
-            background: linear-gradient(135deg, rgba(91, 140, 255, 0.28), rgba(124, 92, 255, 0.18));
+            background: linear-gradient(
+                135deg,
+                {_rgba(primary, 0.28, "rgba(91, 140, 255, 0.28)")},
+                {_rgba(secondary, 0.18, "rgba(124, 92, 255, 0.18)")}
+            );
             border: 1px solid {palette["card_border"]};
             display: flex;
             flex-direction: column;
@@ -514,12 +562,12 @@ def inject_global_css(theme_mode=None):
 
         .home-chip-customer {{
             color: #BFDBFE;
-            background: rgba(59, 130, 246, 0.20);
+            background: {customer_bg};
         }}
 
         .home-chip-general {{
             color: #BBF7D0;
-            background: rgba(34, 197, 94, 0.20);
+            background: {general_bg};
         }}
 
         .home-upcoming-name {{
@@ -542,7 +590,7 @@ def inject_global_css(theme_mode=None):
         .home-calendar-shell {{
             background: {palette["card_bg"]};
             border: 1px solid {palette["card_border"]};
-            border-radius: 24px;
+            border-radius: {card_radius}px;
             padding: 18px;
             box-shadow: {palette["card_shadow"]};
         }}
@@ -556,7 +604,7 @@ def inject_global_css(theme_mode=None):
         }}
 
         .home-empty-day {{
-            min-height: 122px;
+            min-height: {day_min_height}px;
             border-radius: 18px;
             background: {palette["soft_bg"]};
             opacity: 0.25;
@@ -571,13 +619,13 @@ def inject_global_css(theme_mode=None):
         }}
 
         .home-calendar-event.customer {{
-            background: {palette["customer_bg"]};
-            border-color: {palette["customer_border"]};
+            background: {customer_bg};
+            border-color: {customer_border};
         }}
 
         .home-calendar-event.general {{
-            background: {palette["general_bg"]};
-            border-color: {palette["general_border"]};
+            background: {general_bg};
+            border-color: {general_border};
         }}
 
         .home-calendar-event-title {{
@@ -652,13 +700,13 @@ def inject_global_css(theme_mode=None):
         }}
 
         .home-schedule-customer {{
-            background: {palette["customer_bg"]};
-            border-color: {palette["customer_border"]};
+            background: {customer_bg};
+            border-color: {customer_border};
         }}
 
         .home-schedule-general {{
-            background: {palette["general_bg"]};
-            border-color: {palette["general_border"]};
+            background: {general_bg};
+            border-color: {general_border};
         }}
 
         .home-schedule-title {{
@@ -745,17 +793,17 @@ def inject_global_css(theme_mode=None):
         .stButton > button {{
             border: none;
             border-radius: 15px;
-            background: linear-gradient(135deg, {palette["primary"]}, {palette["secondary"]});
+            background: linear-gradient(135deg, {primary}, {secondary});
             color: white !important;
             font-weight: 750;
             min-height: 43px;
-            box-shadow: 0 10px 28px rgba(91, 140, 255, 0.18);
+            box-shadow: 0 10px 28px {_rgba(primary, 0.18, "rgba(91, 140, 255, 0.18)")};
             transition: 0.15s ease;
         }}
 
         .stButton > button:hover {{
             transform: translateY(-1px);
-            box-shadow: 0 14px 34px rgba(91, 140, 255, 0.26);
+            box-shadow: 0 14px 34px {_rgba(primary, 0.26, "rgba(91, 140, 255, 0.26)")};
             border: none;
             color: white !important;
         }}
@@ -767,11 +815,11 @@ def inject_global_css(theme_mode=None):
         .stFormSubmitButton > button {{
             border: none;
             border-radius: 15px;
-            background: linear-gradient(135deg, {palette["primary"]}, {palette["secondary"]});
+            background: linear-gradient(135deg, {primary}, {secondary});
             color: white !important;
             font-weight: 800;
             min-height: 45px;
-            box-shadow: 0 10px 28px rgba(91, 140, 255, 0.18);
+            box-shadow: 0 10px 28px {_rgba(primary, 0.18, "rgba(91, 140, 255, 0.18)")};
         }}
 
         .stTextInput > div > div > input,
