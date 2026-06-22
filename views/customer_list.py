@@ -100,21 +100,21 @@ def inject_customer_list_css():
 
         div[class*="st-key-customer_card_button_"],
         div[class*="st-key-selected_customer_card_button_"] {
-            margin-bottom: 12px;
+            margin-bottom: 8px;
         }
 
         div[class*="st-key-customer_card_button_"] button,
         div[class*="st-key-selected_customer_card_button_"] button {
             width: 100% !important;
             height: auto !important;
-            min-height: 106px !important;
+            min-height: 74px !important;
             justify-content: flex-start !important;
-            align-items: flex-start !important;
+            align-items: center !important;
             text-align: left !important;
-            padding: 16px 18px !important;
-            border-radius: 20px !important;
+            padding: 12px 15px !important;
+            border-radius: 16px !important;
             background: rgba(30, 41, 59, 0.92) !important;
-            border: 1px solid rgba(148, 163, 184, 0.22) !important;
+            border: 1px solid rgba(148, 163, 184, 0.20) !important;
             box-shadow: none !important;
             color: #F8FAFC !important;
             transition: 0.15s ease !important;
@@ -123,33 +123,36 @@ def inject_customer_list_css():
         div[class*="st-key-customer_card_button_"] button:hover,
         div[class*="st-key-selected_customer_card_button_"] button:hover {
             background: rgba(51, 65, 85, 0.96) !important;
-            border-color: rgba(96, 165, 250, 0.60) !important;
+            border-color: rgba(96, 165, 250, 0.56) !important;
             transform: translateY(-1px) !important;
-            box-shadow: 0 8px 22px rgba(0, 0, 0, 0.18) !important;
+            box-shadow: 0 8px 22px rgba(0, 0, 0, 0.16) !important;
         }
 
         div[class*="st-key-selected_customer_card_button_"] button {
-            background: rgba(30, 64, 175, 0.62) !important;
+            background: rgba(30, 64, 175, 0.56) !important;
             border-color: rgba(96, 165, 250, 0.88) !important;
-            box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.38) !important;
+            box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.35) !important;
         }
 
         div[class*="st-key-customer_card_button_"] button p,
         div[class*="st-key-selected_customer_card_button_"] button p {
-            color: #F8FAFC !important;
+            width: 100% !important;
+            color: #CBD5E1 !important;
             white-space: pre-line !important;
-            line-height: 1.65 !important;
-            font-size: 14px !important;
+            line-height: 1.45 !important;
+            font-size: 12.8px !important;
             font-weight: 650 !important;
             text-align: left !important;
             margin: 0 !important;
+            letter-spacing: -0.02em !important;
         }
 
         div[class*="st-key-customer_card_button_"] button p strong,
         div[class*="st-key-selected_customer_card_button_"] button p strong {
             color: #FFFFFF !important;
-            font-size: 16px !important;
+            font-size: 15.5px !important;
             font-weight: 850 !important;
+            letter-spacing: -0.04em !important;
         }
 
         .customer-delete-zone {
@@ -220,7 +223,13 @@ def inject_customer_list_css():
 
             div[class*="st-key-customer_card_button_"] button,
             div[class*="st-key-selected_customer_card_button_"] button {
-                min-height: 96px !important;
+                min-height: 74px !important;
+                padding: 11px 13px !important;
+            }
+
+            div[class*="st-key-customer_card_button_"] button p,
+            div[class*="st-key-selected_customer_card_button_"] button p {
+                font-size: 12.5px !important;
             }
         }
         </style>
@@ -306,11 +315,11 @@ def format_mask_rrn(rrn):
     return safe_value(rrn)
 
 
-def get_age_from_rrn(rrn):
+def get_birth_info_from_rrn(rrn):
     digits = only_digits(rrn)
 
     if len(digits) < 7:
-        return ""
+        return None
 
     birth6 = digits[:6]
     gender_code = digits[6]
@@ -320,7 +329,7 @@ def get_age_from_rrn(rrn):
         mm = int(birth6[2:4])
         dd = int(birth6[4:6])
     except Exception:
-        return ""
+        return None
 
     if gender_code in ["1", "2", "5", "6"]:
         year = 1900 + yy
@@ -329,20 +338,38 @@ def get_age_from_rrn(rrn):
     elif gender_code in ["9", "0"]:
         year = 1800 + yy
     else:
-        return ""
+        return None
 
     try:
-        today = date.today()
         birthday = date(year, mm, dd)
-
-        age = today.year - birthday.year
-
-        if (today.month, today.day) < (birthday.month, birthday.day):
-            age -= 1
-
-        return f"만 {age}세"
     except ValueError:
+        return None
+
+    return birthday
+
+
+def get_age_from_rrn(rrn):
+    birthday = get_birth_info_from_rrn(rrn)
+
+    if not birthday:
         return ""
+
+    today = date.today()
+    age = today.year - birthday.year
+
+    if (today.month, today.day) < (birthday.month, birthday.day):
+        age -= 1
+
+    return f"만 {age}세"
+
+
+def format_birth_from_rrn(rrn):
+    birthday = get_birth_info_from_rrn(rrn)
+
+    if not birthday:
+        return "-"
+
+    return birthday.strftime("%Y.%m.%d")
 
 
 def short_address(address):
@@ -357,6 +384,27 @@ def short_address(address):
         return f"{parts[0]} {parts[1]}"
 
     return text
+
+
+def status_dot(status):
+    status_text = safe_value(status).strip()
+
+    if status_text in ["상담예정", "청약예정"]:
+        return "●"
+
+    if status_text in ["상담중", "분석중"]:
+        return "●"
+
+    if status_text in ["제안완료", "계약완료"]:
+        return "●"
+
+    if status_text == "보류":
+        return "●"
+
+    if status_text == "실패":
+        return "●"
+
+    return "●"
 
 
 def _init_filter_state():
@@ -431,7 +479,7 @@ def render_customer_filters(customers):
         with col_search:
             keyword = st.text_input(
                 "검색",
-                placeholder="고객명, 연락처, 주민번호, 주소, 메모 검색",
+                placeholder="고객명, 연락처, 생년월일, 주소, 메모 검색",
                 key="customer_list_search",
             )
 
@@ -481,7 +529,8 @@ def render_customer_filters(customers):
 def render_customer_card(customer, is_selected):
     customer_id = customer["id"]
 
-    raw_name = safe_label(customer.get("name"), "이름없음")
+    name = safe_label(customer.get("name"), "이름없음")
+    age = safe_label(get_age_from_rrn(customer.get("rrn")), "만 나이 없음")
     phone = safe_label(
         format_phone_with_carrier(
             customer.get("phone"),
@@ -489,19 +538,15 @@ def render_customer_card(customer, is_selected):
         ),
         "연락처 없음",
     )
-    age = safe_label(get_age_from_rrn(customer.get("rrn")), "만 나이 없음")
-    rrn = safe_label(format_mask_rrn(customer.get("rrn")), "-")
+    birth = safe_label(format_birth_from_rrn(customer.get("rrn")), "-")
     address = safe_label(short_address(customer.get("address")), "-")
     status = safe_label(customer.get("status"), "상태 없음")
-    customer_type = safe_label(customer.get("customer_type"), "유형 없음")
 
-    selected_text = "  ✅ 선택됨" if is_selected else ""
+    selected_text = "  선택됨" if is_selected else ""
 
     card_label = (
-        f"👤 **{raw_name}** ({age}){selected_text}\n"
-        f"유형 {customer_type} · 연락처 {phone}\n"
-        f"주민번호 {rrn} · 주소 {address}\n"
-        f"진행상태 {status}"
+        f"**{name} ({age})**   {phone}        {status_dot(status)} {status}{selected_text}\n"
+        f"생년월일 {birth}   ·   주소 {address}"
     )
 
     button_key = (
