@@ -15,7 +15,6 @@ from utils.ui import (
     render_card_start,
     render_card_end,
     render_section_title,
-    render_metric_card,
     get_status_class,
 )
 
@@ -49,6 +48,52 @@ CARRIER_OPTIONS = [
     "알뜰폰KT",
     "알뜰폰LG U+",
 ]
+
+
+def inject_customer_list_css():
+    st.markdown(
+        """
+        <style>
+        div[data-testid="stHorizontalBlock"]:has(.customer-detail-sticky-anchor)
+        > div[data-testid="column"]:nth-child(2) {
+            position: sticky;
+            top: 72px;
+            align-self: flex-start;
+            max-height: calc(100vh - 90px);
+            overflow-y: auto;
+            padding-right: 6px;
+        }
+
+        div[data-testid="stHorizontalBlock"]:has(.customer-detail-sticky-anchor)
+        > div[data-testid="column"]:nth-child(2)::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        div[data-testid="stHorizontalBlock"]:has(.customer-detail-sticky-anchor)
+        > div[data-testid="column"]:nth-child(2)::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.35);
+            border-radius: 999px;
+        }
+
+        .customer-filter-summary {
+            font-size: 13px;
+            color: #94A3B8;
+            margin-top: 6px;
+        }
+
+        @media screen and (max-width: 900px) {
+            div[data-testid="stHorizontalBlock"]:has(.customer-detail-sticky-anchor)
+            > div[data-testid="column"]:nth-child(2) {
+                position: static;
+                max-height: none;
+                overflow: visible;
+                padding-right: 0;
+            }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def safe_value(value):
@@ -170,14 +215,6 @@ def short_address(address):
     return text
 
 
-def count_status(customers, status_value):
-    return sum(
-        1
-        for customer in customers
-        if safe_value(customer.get("status")).strip() == status_value
-    )
-
-
 def _init_filter_state():
     st.session_state.setdefault("customer_list_search", "")
     st.session_state.setdefault("customer_list_status_filter", "전체")
@@ -208,7 +245,10 @@ def _customer_matches_search(customer, keyword):
         customer.get("owner_name"),
     ]
 
-    joined = " ".join(safe_value(value).lower() for value in searchable_values)
+    joined = " ".join(
+        safe_value(value).lower()
+        for value in searchable_values
+    )
 
     return keyword in joined
 
@@ -240,7 +280,9 @@ def render_customer_filters(customers):
     render_card_start()
     render_section_title("고객 필터")
 
-    col_search, col_status, col_type, col_reset = st.columns([0.38, 0.22, 0.22, 0.18])
+    col_search, col_status, col_type, col_reset = st.columns(
+        [0.38, 0.22, 0.22, 0.18]
+    )
 
     with col_search:
         keyword = st.text_input(
@@ -266,13 +308,12 @@ def render_customer_filters(customers):
     with col_reset:
         st.markdown("<br>", unsafe_allow_html=True)
 
-        if st.button(
+        st.button(
             "필터 초기화",
             use_container_width=True,
             key="customer_filter_reset_button",
-        ):
-            _reset_filters()
-            st.rerun()
+            on_click=_reset_filters,
+        )
 
     filtered_customers = _filter_customers(
         customers=customers,
@@ -281,8 +322,13 @@ def render_customer_filters(customers):
         type_filter=type_filter,
     )
 
-    st.caption(
-        f"전체 {len(customers)}명 중 {len(filtered_customers)}명이 표시됩니다."
+    st.markdown(
+        f"""
+        <div class="customer-filter-summary">
+            전체 {len(customers)}명 중 {len(filtered_customers)}명이 표시됩니다.
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
     render_card_end()
@@ -319,7 +365,9 @@ def render_customer_card(customer, is_selected):
             <div class="recent-customer-left">
                 <div class="recent-avatar">{initial}</div>
                 <div class="recent-main">
-                    <div class="recent-name">{name} <span class="crm-muted">({age})</span></div>
+                    <div class="recent-name">
+                        {name} <span class="crm-muted">({age})</span>
+                    </div>
                     <div class="recent-meta">{customer_type} · {phone}</div>
                     <div class="recent-meta">주민번호 {rrn} · {address}</div>
                 </div>
@@ -524,6 +572,8 @@ def render_customer_detail_form(customer, selected_customer_id, user):
 
 
 def customer_list_page(user):
+    inject_customer_list_css()
+
     render_view_header(
         "고객 리스트",
         "등록된 고객을 필터로 정리하고 상세 정보, 상담 이력, 진행 상태를 관리하세요.",
@@ -552,20 +602,6 @@ def customer_list_page(user):
     ):
         st.session_state.selected_customer_id = None
 
-    col1, col2, col3, col4 = st.columns(4)
-
-    with col1:
-        render_metric_card("전체 고객", len(customers), "등록된 고객 수")
-
-    with col2:
-        render_metric_card("필터 결과", len(filtered_customers), "현재 표시 고객 수")
-
-    with col3:
-        render_metric_card("상담예정", count_status(customers, "상담예정"), "상담예정 고객")
-
-    with col4:
-        render_metric_card("제안완료", count_status(customers, "제안완료"), "제안완료 고객")
-
     st.markdown("<br>", unsafe_allow_html=True)
 
     left, right = st.columns([1.12, 0.88])
@@ -573,7 +609,9 @@ def customer_list_page(user):
     with left:
         render_card_start()
         render_section_title("고객 목록")
-        st.caption("진행상태와 고객유형으로 필터링하고, 고객 카드를 선택하면 오른쪽에서 상세 수정이 가능합니다.")
+        st.caption(
+            "진행상태와 고객유형으로 필터링하고, 고객 카드를 선택하면 오른쪽에서 상세 수정이 가능합니다."
+        )
 
         if not filtered_customers:
             st.info("필터 조건에 맞는 고객이 없습니다.")
@@ -587,6 +625,11 @@ def customer_list_page(user):
         render_card_end()
 
     with right:
+        st.markdown(
+            '<div class="customer-detail-sticky-anchor"></div>',
+            unsafe_allow_html=True,
+        )
+
         selected_customer_id = st.session_state.selected_customer_id
 
         if not selected_customer_id:
