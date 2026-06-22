@@ -1,5 +1,6 @@
 import html
 import re
+from datetime import date
 
 import streamlit as st
 
@@ -125,20 +126,23 @@ def get_age_from_rrn(rrn):
     birth6 = digits[:6]
     gender_code = digits[6]
 
-    yy = int(birth6[:2])
-    mm = int(birth6[2:4])
-    dd = int(birth6[4:6])
+    try:
+        yy = int(birth6[:2])
+        mm = int(birth6[2:4])
+        dd = int(birth6[4:6])
+    except Exception:
+        return ""
 
     if gender_code in ["1", "2", "5", "6"]:
         year = 1900 + yy
     elif gender_code in ["3", "4", "7", "8"]:
         year = 2000 + yy
+    elif gender_code in ["9", "0"]:
+        year = 1800 + yy
     else:
         return ""
 
     try:
-        from datetime import date
-
         today = date.today()
         birthday = date(year, mm, dd)
 
@@ -148,7 +152,6 @@ def get_age_from_rrn(rrn):
             age -= 1
 
         return f"만 {age}세"
-
     except ValueError:
         return ""
 
@@ -167,22 +170,133 @@ def short_address(address):
     return text
 
 
-def count_status(customers, keyword):
-    count = 0
+def count_status(customers, status_value):
+    return sum(
+        1
+        for customer in customers
+        if safe_value(customer.get("status")).strip() == status_value
+    )
+
+
+def _init_filter_state():
+    st.session_state.setdefault("customer_list_search", "")
+    st.session_state.setdefault("customer_list_status_filter", "전체")
+    st.session_state.setdefault("customer_list_type_filter", "전체")
+
+
+def _reset_filters():
+    st.session_state.customer_list_search = ""
+    st.session_state.customer_list_status_filter = "전체"
+    st.session_state.customer_list_type_filter = "전체"
+
+
+def _customer_matches_search(customer, keyword):
+    keyword = safe_value(keyword).strip().lower()
+
+    if not keyword:
+        return True
+
+    searchable_values = [
+        customer.get("name"),
+        customer.get("phone"),
+        customer.get("carrier"),
+        customer.get("rrn"),
+        customer.get("address"),
+        customer.get("memo"),
+        customer.get("status"),
+        customer.get("customer_type"),
+        customer.get("owner_name"),
+    ]
+
+    joined = " ".join(safe_value(value).lower() for value in searchable_values)
+
+    return keyword in joined
+
+
+def _filter_customers(customers, keyword, status_filter, type_filter):
+    filtered = []
 
     for customer in customers:
-        status = safe_value(customer.get("status"))
+        status = safe_value(customer.get("status")).strip()
+        customer_type = safe_value(customer.get("customer_type")).strip()
 
-        if keyword in status:
-            count += 1
+        if status_filter != "전체" and status != status_filter:
+            continue
 
-    return count
+        if type_filter != "전체" and customer_type != type_filter:
+            continue
+
+        if not _customer_matches_search(customer, keyword):
+            continue
+
+        filtered.append(customer)
+
+    return filtered
+
+
+def render_customer_filters(customers):
+    _init_filter_state()
+
+    render_card_start()
+    render_section_title("고객 필터")
+
+    col_search, col_status, col_type, col_reset = st.columns([0.38, 0.22, 0.22, 0.18])
+
+    with col_search:
+        keyword = st.text_input(
+            "검색",
+            placeholder="고객명, 연락처, 주민번호, 주소, 메모 검색",
+            key="customer_list_search",
+        )
+
+    with col_status:
+        status_filter = st.selectbox(
+            "진행상태",
+            ["전체"] + STATUS_OPTIONS,
+            key="customer_list_status_filter",
+        )
+
+    with col_type:
+        type_filter = st.selectbox(
+            "고객유형",
+            ["전체"] + CUSTOMER_TYPE_OPTIONS,
+            key="customer_list_type_filter",
+        )
+
+    with col_reset:
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        if st.button(
+            "필터 초기화",
+            use_container_width=True,
+            key="customer_filter_reset_button",
+        ):
+            _reset_filters()
+            st.rerun()
+
+    filtered_customers = _filter_customers(
+        customers=customers,
+        keyword=keyword,
+        status_filter=status_filter,
+        type_filter=type_filter,
+    )
+
+    st.caption(
+        f"전체 {len(customers)}명 중 {len(filtered_customers)}명이 표시됩니다."
+    )
+
+    render_card_end()
+
+    return filtered_customers
 
 
 def render_customer_card(customer, is_selected):
     customer_id = customer["id"]
 
-    name = safe_html(customer.get("name"), "이름없음")
+    raw_name = safe_value(customer.get("name")).strip() or "이름없음"
+    initial = safe_html(raw_name[:1], "?")
+
+    name = safe_html(raw_name, "이름없음")
     phone = safe_html(
         format_phone_with_carrier(
             customer.get("phone"),
@@ -190,7 +304,7 @@ def render_customer_card(customer, is_selected):
         ),
         "연락처 없음",
     )
-    age = safe_html(get_age_from_rrn(customer.get("rrn")), "-")
+    age = safe_html(get_age_from_rrn(customer.get("rrn")), "만 나이 없음")
     rrn = safe_html(format_mask_rrn(customer.get("rrn")), "-")
     address = safe_html(short_address(customer.get("address")), "-")
     status = safe_html(customer.get("status"), "상태 없음")
@@ -203,11 +317,11 @@ def render_customer_card(customer, is_selected):
         f"""
         <div class="crm-list-card{selected_class}">
             <div class="recent-customer-left">
-                <div class="recent-avatar">{name[:1]}</div>
+                <div class="recent-avatar">{initial}</div>
                 <div class="recent-main">
-                    <div class="recent-name">{name}</div>
+                    <div class="recent-name">{name} <span class="crm-muted">({age})</span></div>
                     <div class="recent-meta">{customer_type} · {phone}</div>
-                    <div class="recent-meta">주민번호 {rrn} · {age} · {address}</div>
+                    <div class="recent-meta">주민번호 {rrn} · {address}</div>
                 </div>
             </div>
             <div class="recent-customer-right">
@@ -244,6 +358,8 @@ def render_customer_card(customer, is_selected):
 def render_customer_detail_form(customer, selected_customer_id, user):
     render_card_start()
     render_section_title("고객 상세 / 수정")
+
+    age_text = get_age_from_rrn(customer.get("rrn")) or "만 나이 계산 불가"
 
     with st.form(f"customer_detail_edit_form_{selected_customer_id}"):
         col1, col2 = st.columns(2)
@@ -299,10 +415,20 @@ def render_customer_detail_form(customer, selected_customer_id, user):
                 )
 
         with col2:
-            rrn = st.text_input(
-                "주민번호",
-                value=safe_value(customer.get("rrn")),
-            )
+            rrn_col, age_col = st.columns([1.4, 0.8])
+
+            with rrn_col:
+                rrn = st.text_input(
+                    "주민번호",
+                    value=safe_value(customer.get("rrn")),
+                )
+
+            with age_col:
+                st.text_input(
+                    "만 나이",
+                    value=age_text,
+                    disabled=True,
+                )
 
             status = st.selectbox(
                 "진행상태",
@@ -400,7 +526,7 @@ def render_customer_detail_form(customer, selected_customer_id, user):
 def customer_list_page(user):
     render_view_header(
         "고객 리스트",
-        "등록된 고객을 확인하고 상세 정보, 상담 이력, 진행 상태를 관리하세요.",
+        "등록된 고객을 필터로 정리하고 상세 정보, 상담 이력, 진행 상태를 관리하세요.",
     )
 
     customers = get_customers(user)
@@ -412,29 +538,33 @@ def customer_list_page(user):
     if "selected_customer_id" not in st.session_state:
         st.session_state.selected_customer_id = None
 
-    customer_ids = [customer["id"] for customer in customers]
+    all_customer_ids = [customer["id"] for customer in customers]
 
-    if st.session_state.selected_customer_id not in customer_ids:
+    if st.session_state.selected_customer_id not in all_customer_ids:
         st.session_state.selected_customer_id = None
 
-    total_customers = len(customers)
-    active_customers = count_status(customers, "상담")
-    completed_customers = count_status(customers, "완료")
-    pending_customers = count_status(customers, "보류")
+    filtered_customers = render_customer_filters(customers)
+    filtered_customer_ids = [customer["id"] for customer in filtered_customers]
+
+    if (
+        st.session_state.selected_customer_id
+        and st.session_state.selected_customer_id not in filtered_customer_ids
+    ):
+        st.session_state.selected_customer_id = None
 
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        render_metric_card("전체 고객", total_customers, "등록된 고객 수")
+        render_metric_card("전체 고객", len(customers), "등록된 고객 수")
 
     with col2:
-        render_metric_card("상담 고객", active_customers, "상담 상태 고객")
+        render_metric_card("필터 결과", len(filtered_customers), "현재 표시 고객 수")
 
     with col3:
-        render_metric_card("계약 완료", completed_customers, "완료 상태 고객")
+        render_metric_card("상담예정", count_status(customers, "상담예정"), "상담예정 고객")
 
     with col4:
-        render_metric_card("보류 고객", pending_customers, "보류 상태 고객")
+        render_metric_card("제안완료", count_status(customers, "제안완료"), "제안완료 고객")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -443,13 +573,16 @@ def customer_list_page(user):
     with left:
         render_card_start()
         render_section_title("고객 목록")
-        st.caption("고객 카드를 선택하면 오른쪽에서 상세 정보 수정이 가능합니다.")
+        st.caption("진행상태와 고객유형으로 필터링하고, 고객 카드를 선택하면 오른쪽에서 상세 수정이 가능합니다.")
 
-        for customer in customers:
-            is_selected = (
-                st.session_state.selected_customer_id == customer["id"]
-            )
-            render_customer_card(customer, is_selected)
+        if not filtered_customers:
+            st.info("필터 조건에 맞는 고객이 없습니다.")
+        else:
+            for customer in filtered_customers:
+                is_selected = (
+                    st.session_state.selected_customer_id == customer["id"]
+                )
+                render_customer_card(customer, is_selected)
 
         render_card_end()
 
