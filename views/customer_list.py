@@ -49,45 +49,29 @@ CARRIER_OPTIONS = [
     "알뜰폰LG U+",
 ]
 
+CUSTOMER_LIST_PANEL_HEIGHT = 720
+
 
 def inject_customer_list_css():
     st.markdown(
         """
         <style>
-        div[data-testid="stHorizontalBlock"]:has(.customer-detail-sticky-anchor)
-        > div[data-testid="column"]:nth-child(2) {
-            position: sticky;
-            top: 72px;
-            align-self: flex-start;
-            max-height: calc(100vh - 90px);
-            overflow-y: auto;
-            padding-right: 6px;
-        }
-
-        div[data-testid="stHorizontalBlock"]:has(.customer-detail-sticky-anchor)
-        > div[data-testid="column"]:nth-child(2)::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        div[data-testid="stHorizontalBlock"]:has(.customer-detail-sticky-anchor)
-        > div[data-testid="column"]:nth-child(2)::-webkit-scrollbar-thumb {
-            background: rgba(148, 163, 184, 0.35);
-            border-radius: 999px;
-        }
-
         .customer-filter-summary {
             font-size: 13px;
             color: #94A3B8;
             margin-top: 6px;
         }
 
+        .customer-list-scroll-note {
+            font-size: 12px;
+            color: #94A3B8;
+            margin-top: 4px;
+            margin-bottom: 12px;
+        }
+
         @media screen and (max-width: 900px) {
-            div[data-testid="stHorizontalBlock"]:has(.customer-detail-sticky-anchor)
-            > div[data-testid="column"]:nth-child(2) {
-                position: static;
-                max-height: none;
-                overflow: visible;
-                padding-right: 0;
+            .customer-list-scroll-note {
+                display: none;
             }
         }
         </style>
@@ -571,6 +555,59 @@ def render_customer_detail_form(customer, selected_customer_id, user):
     render_card_end()
 
 
+def render_customer_list_area(filtered_customers):
+    render_card_start()
+    render_section_title("고객 목록")
+
+    st.caption(
+        "진행상태와 고객유형으로 필터링하고, 고객 카드를 선택하면 오른쪽에서 상세 수정이 가능합니다."
+    )
+
+    st.markdown(
+        """
+        <div class="customer-list-scroll-note">
+            고객 목록이 많을 경우 이 영역 안에서만 스크롤됩니다.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    with st.container(
+        height=CUSTOMER_LIST_PANEL_HEIGHT,
+        border=False,
+    ):
+        if not filtered_customers:
+            st.info("필터 조건에 맞는 고객이 없습니다.")
+        else:
+            for customer in filtered_customers:
+                is_selected = (
+                    st.session_state.selected_customer_id == customer["id"]
+                )
+                render_customer_card(customer, is_selected)
+
+    render_card_end()
+
+
+def render_customer_detail_area(user, selected_customer_id):
+    if not selected_customer_id:
+        render_card_start()
+        render_section_title("상세 정보")
+        st.info("상세보기 또는 수정을 하려면 고객을 선택하세요.")
+        render_card_end()
+        return
+
+    customer = get_customer_by_id(selected_customer_id)
+
+    if not customer:
+        render_card_start()
+        render_section_title("상세 정보")
+        st.warning("고객 정보를 찾을 수 없습니다.")
+        render_card_end()
+        return
+
+    render_customer_detail_form(customer, selected_customer_id, user)
+
+
 def customer_list_page(user):
     inject_customer_list_css()
 
@@ -607,42 +644,10 @@ def customer_list_page(user):
     left, right = st.columns([1.12, 0.88])
 
     with left:
-        render_card_start()
-        render_section_title("고객 목록")
-        st.caption(
-            "진행상태와 고객유형으로 필터링하고, 고객 카드를 선택하면 오른쪽에서 상세 수정이 가능합니다."
-        )
-
-        if not filtered_customers:
-            st.info("필터 조건에 맞는 고객이 없습니다.")
-        else:
-            for customer in filtered_customers:
-                is_selected = (
-                    st.session_state.selected_customer_id == customer["id"]
-                )
-                render_customer_card(customer, is_selected)
-
-        render_card_end()
+        render_customer_list_area(filtered_customers)
 
     with right:
-        st.markdown(
-            '<div class="customer-detail-sticky-anchor"></div>',
-            unsafe_allow_html=True,
+        render_customer_detail_area(
+            user=user,
+            selected_customer_id=st.session_state.selected_customer_id,
         )
-
-        selected_customer_id = st.session_state.selected_customer_id
-
-        if not selected_customer_id:
-            render_card_start()
-            render_section_title("상세 정보")
-            st.info("상세보기 또는 수정을 하려면 고객을 선택하세요.")
-            render_card_end()
-            return
-
-        customer = get_customer_by_id(selected_customer_id)
-
-        if not customer:
-            st.warning("고객 정보를 찾을 수 없습니다.")
-            return
-
-        render_customer_detail_form(customer, selected_customer_id, user)
