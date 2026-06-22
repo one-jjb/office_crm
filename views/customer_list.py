@@ -10,10 +10,8 @@ from utils.customer import (
     update_customer,
     delete_customer,
 )
-from utils.page_common import render_view_header
 from utils.ui import (
-    render_card_start,
-    render_card_end,
+    render_page_header,
     render_section_title,
     get_status_class,
 )
@@ -58,15 +56,136 @@ def inject_customer_list_css():
         <style>
         .customer-filter-summary {
             font-size: 13px;
-            color: #94A3B8;
+            color: #CBD5E1;
             margin-top: 6px;
         }
 
         .customer-list-scroll-note {
             font-size: 12px;
-            color: #94A3B8;
+            color: #CBD5E1;
             margin-top: 4px;
             margin-bottom: 12px;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"] {
+            background: rgba(15, 23, 42, 0.78) !important;
+            border: 1px solid rgba(148, 163, 184, 0.24) !important;
+            border-radius: 22px !important;
+            box-shadow: 0 18px 50px rgba(0, 0, 0, 0.20) !important;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"] * {
+            color: #E5E7EB;
+        }
+
+        div[data-testid="stForm"] {
+            background: rgba(15, 23, 42, 0.82) !important;
+            border: 1px solid rgba(148, 163, 184, 0.24) !important;
+            border-radius: 22px !important;
+            box-shadow: none !important;
+        }
+
+        div[data-testid="stForm"] label,
+        div[data-testid="stForm"] p,
+        div[data-testid="stForm"] span {
+            color: #E5E7EB !important;
+        }
+
+        .crm-section-title {
+            color: #F8FAFC !important;
+        }
+
+        .crm-muted {
+            color: #CBD5E1 !important;
+        }
+
+        .crm-list-card {
+            background: rgba(30, 41, 59, 0.92) !important;
+            border: 1px solid rgba(148, 163, 184, 0.22) !important;
+            box-shadow: none !important;
+        }
+
+        .crm-list-card:hover {
+            background: rgba(51, 65, 85, 0.96) !important;
+            border-color: rgba(148, 163, 184, 0.34) !important;
+        }
+
+        .customer-card-selected {
+            border-color: rgba(96, 165, 250, 0.82) !important;
+            box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.38) !important;
+        }
+
+        .recent-name {
+            color: #F8FAFC !important;
+        }
+
+        .recent-meta {
+            color: #CBD5E1 !important;
+        }
+
+        .recent-status {
+            color: #F8FAFC !important;
+        }
+
+        .customer-delete-zone {
+            margin-top: 18px;
+            padding: 20px;
+            border-radius: 22px;
+            background: rgba(15, 23, 42, 0.78);
+            border: 1px solid rgba(248, 113, 113, 0.28);
+        }
+
+        .customer-delete-zone-title {
+            font-size: 20px;
+            font-weight: 850;
+            color: #F8FAFC;
+            letter-spacing: -0.04em;
+            margin-bottom: 12px;
+        }
+
+        .customer-delete-zone-desc {
+            color: #FCA5A5;
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+
+        .stTextInput input,
+        .stTextArea textarea,
+        .stDateInput input {
+            background: #F8FAFC !important;
+            color: #0F172A !important;
+            border: 1px solid rgba(148, 163, 184, 0.40) !important;
+            border-radius: 14px !important;
+        }
+
+        .stTextInput input::placeholder,
+        .stTextArea textarea::placeholder {
+            color: #64748B !important;
+        }
+
+        div[data-baseweb="select"] > div {
+            background: #F8FAFC !important;
+            color: #0F172A !important;
+            border: 1px solid rgba(148, 163, 184, 0.40) !important;
+            border-radius: 14px !important;
+        }
+
+        div[data-baseweb="select"] span {
+            color: #0F172A !important;
+        }
+
+        div[data-baseweb="popover"] * {
+            color: #0F172A !important;
+        }
+
+        div[data-testid="stAlert"] {
+            background: rgba(30, 41, 59, 0.92) !important;
+            color: #E5E7EB !important;
+            border: 1px solid rgba(148, 163, 184, 0.24) !important;
+        }
+
+        div[data-testid="stAlert"] * {
+            color: #E5E7EB !important;
         }
 
         @media screen and (max-width: 900px) {
@@ -261,61 +380,59 @@ def _filter_customers(customers, keyword, status_filter, type_filter):
 def render_customer_filters(customers):
     _init_filter_state()
 
-    render_card_start()
-    render_section_title("고객 필터")
+    with st.container(border=True):
+        render_section_title("고객 필터")
 
-    col_search, col_status, col_type, col_reset = st.columns(
-        [0.38, 0.22, 0.22, 0.18]
-    )
-
-    with col_search:
-        keyword = st.text_input(
-            "검색",
-            placeholder="고객명, 연락처, 주민번호, 주소, 메모 검색",
-            key="customer_list_search",
+        col_search, col_status, col_type, col_reset = st.columns(
+            [0.38, 0.22, 0.22, 0.18]
         )
 
-    with col_status:
-        status_filter = st.selectbox(
-            "진행상태",
-            ["전체"] + STATUS_OPTIONS,
-            key="customer_list_status_filter",
+        with col_search:
+            keyword = st.text_input(
+                "검색",
+                placeholder="고객명, 연락처, 주민번호, 주소, 메모 검색",
+                key="customer_list_search",
+            )
+
+        with col_status:
+            status_filter = st.selectbox(
+                "진행상태",
+                ["전체"] + STATUS_OPTIONS,
+                key="customer_list_status_filter",
+            )
+
+        with col_type:
+            type_filter = st.selectbox(
+                "고객유형",
+                ["전체"] + CUSTOMER_TYPE_OPTIONS,
+                key="customer_list_type_filter",
+            )
+
+        with col_reset:
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            st.button(
+                "필터 초기화",
+                use_container_width=True,
+                key="customer_filter_reset_button",
+                on_click=_reset_filters,
+            )
+
+        filtered_customers = _filter_customers(
+            customers=customers,
+            keyword=keyword,
+            status_filter=status_filter,
+            type_filter=type_filter,
         )
 
-    with col_type:
-        type_filter = st.selectbox(
-            "고객유형",
-            ["전체"] + CUSTOMER_TYPE_OPTIONS,
-            key="customer_list_type_filter",
+        st.markdown(
+            f"""
+            <div class="customer-filter-summary">
+                전체 {len(customers)}명 중 {len(filtered_customers)}명이 표시됩니다.
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
-
-    with col_reset:
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        st.button(
-            "필터 초기화",
-            use_container_width=True,
-            key="customer_filter_reset_button",
-            on_click=_reset_filters,
-        )
-
-    filtered_customers = _filter_customers(
-        customers=customers,
-        keyword=keyword,
-        status_filter=status_filter,
-        type_filter=type_filter,
-    )
-
-    st.markdown(
-        f"""
-        <div class="customer-filter-summary">
-            전체 {len(customers)}명 중 {len(filtered_customers)}명이 표시됩니다.
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    render_card_end()
 
     return filtered_customers
 
@@ -388,7 +505,6 @@ def render_customer_card(customer, is_selected):
 
 
 def render_customer_detail_form(customer, selected_customer_id, user):
-    render_card_start()
     render_section_title("고객 상세 / 수정")
 
     age_text = get_age_from_rrn(customer.get("rrn")) or "만 나이 계산 불가"
@@ -523,12 +639,17 @@ def render_customer_detail_form(customer, selected_customer_id, user):
             st.session_state.selected_consult_customer_id = selected_customer_id
             st.switch_page("pages/4_상담이력.py")
 
-    render_card_end()
-
-    render_card_start()
-    render_section_title("고객 삭제")
-
-    st.warning("고객을 삭제하면 해당 고객의 상담 이력도 함께 삭제됩니다.")
+    st.markdown(
+        """
+        <div class="customer-delete-zone">
+            <div class="customer-delete-zone-title">고객 삭제</div>
+            <div class="customer-delete-zone-desc">
+                고객을 삭제하면 해당 고객의 상담 이력도 함께 삭제됩니다.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     confirm_text = st.text_input(
         "삭제하려면 고객명을 그대로 입력하세요.",
@@ -552,66 +673,59 @@ def render_customer_detail_form(customer, selected_customer_id, user):
             else:
                 st.error("삭제 권한이 없거나 고객을 찾을 수 없습니다.")
 
-    render_card_end()
-
 
 def render_customer_list_area(filtered_customers):
-    render_card_start()
-    render_section_title("고객 목록")
+    with st.container(border=True):
+        render_section_title("고객 목록")
 
-    st.caption(
-        "진행상태와 고객유형으로 필터링하고, 고객 카드를 선택하면 오른쪽에서 상세 수정이 가능합니다."
-    )
+        st.caption(
+            "진행상태와 고객유형으로 필터링하고, 고객 카드를 선택하면 오른쪽에서 상세 수정이 가능합니다."
+        )
 
-    st.markdown(
-        """
-        <div class="customer-list-scroll-note">
-            고객 목록이 많을 경우 이 영역 안에서만 스크롤됩니다.
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+        st.markdown(
+            """
+            <div class="customer-list-scroll-note">
+                고객 목록이 많을 경우 이 영역 안에서만 스크롤됩니다.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-    with st.container(
-        height=CUSTOMER_LIST_PANEL_HEIGHT,
-        border=False,
-    ):
-        if not filtered_customers:
-            st.info("필터 조건에 맞는 고객이 없습니다.")
-        else:
-            for customer in filtered_customers:
-                is_selected = (
-                    st.session_state.selected_customer_id == customer["id"]
-                )
-                render_customer_card(customer, is_selected)
-
-    render_card_end()
+        with st.container(
+            height=CUSTOMER_LIST_PANEL_HEIGHT,
+            border=False,
+        ):
+            if not filtered_customers:
+                st.info("필터 조건에 맞는 고객이 없습니다.")
+            else:
+                for customer in filtered_customers:
+                    is_selected = (
+                        st.session_state.selected_customer_id == customer["id"]
+                    )
+                    render_customer_card(customer, is_selected)
 
 
 def render_customer_detail_area(user, selected_customer_id):
-    if not selected_customer_id:
-        render_card_start()
-        render_section_title("상세 정보")
-        st.info("상세보기 또는 수정을 하려면 고객을 선택하세요.")
-        render_card_end()
-        return
+    with st.container(border=True):
+        if not selected_customer_id:
+            render_section_title("상세 정보")
+            st.info("상세보기 또는 수정을 하려면 고객을 선택하세요.")
+            return
 
-    customer = get_customer_by_id(selected_customer_id)
+        customer = get_customer_by_id(selected_customer_id)
 
-    if not customer:
-        render_card_start()
-        render_section_title("상세 정보")
-        st.warning("고객 정보를 찾을 수 없습니다.")
-        render_card_end()
-        return
+        if not customer:
+            render_section_title("상세 정보")
+            st.warning("고객 정보를 찾을 수 없습니다.")
+            return
 
-    render_customer_detail_form(customer, selected_customer_id, user)
+        render_customer_detail_form(customer, selected_customer_id, user)
 
 
 def customer_list_page(user):
     inject_customer_list_css()
 
-    render_view_header(
+    render_page_header(
         "고객 리스트",
         "등록된 고객을 필터로 정리하고 상세 정보, 상담 이력, 진행 상태를 관리하세요.",
     )
