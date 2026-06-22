@@ -13,7 +13,6 @@ from utils.customer import (
 from utils.ui import (
     render_page_header,
     render_section_title,
-    get_status_class,
 )
 
 
@@ -99,32 +98,58 @@ def inject_customer_list_css():
             color: #CBD5E1 !important;
         }
 
-        .crm-list-card {
+        div[class*="st-key-customer_card_button_"],
+        div[class*="st-key-selected_customer_card_button_"] {
+            margin-bottom: 12px;
+        }
+
+        div[class*="st-key-customer_card_button_"] button,
+        div[class*="st-key-selected_customer_card_button_"] button {
+            width: 100% !important;
+            height: auto !important;
+            min-height: 106px !important;
+            justify-content: flex-start !important;
+            align-items: flex-start !important;
+            text-align: left !important;
+            padding: 16px 18px !important;
+            border-radius: 20px !important;
             background: rgba(30, 41, 59, 0.92) !important;
             border: 1px solid rgba(148, 163, 184, 0.22) !important;
             box-shadow: none !important;
+            color: #F8FAFC !important;
+            transition: 0.15s ease !important;
         }
 
-        .crm-list-card:hover {
+        div[class*="st-key-customer_card_button_"] button:hover,
+        div[class*="st-key-selected_customer_card_button_"] button:hover {
             background: rgba(51, 65, 85, 0.96) !important;
-            border-color: rgba(148, 163, 184, 0.34) !important;
+            border-color: rgba(96, 165, 250, 0.60) !important;
+            transform: translateY(-1px) !important;
+            box-shadow: 0 8px 22px rgba(0, 0, 0, 0.18) !important;
         }
 
-        .customer-card-selected {
-            border-color: rgba(96, 165, 250, 0.82) !important;
+        div[class*="st-key-selected_customer_card_button_"] button {
+            background: rgba(30, 64, 175, 0.62) !important;
+            border-color: rgba(96, 165, 250, 0.88) !important;
             box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.38) !important;
         }
 
-        .recent-name {
+        div[class*="st-key-customer_card_button_"] button p,
+        div[class*="st-key-selected_customer_card_button_"] button p {
             color: #F8FAFC !important;
+            white-space: pre-line !important;
+            line-height: 1.65 !important;
+            font-size: 14px !important;
+            font-weight: 650 !important;
+            text-align: left !important;
+            margin: 0 !important;
         }
 
-        .recent-meta {
-            color: #CBD5E1 !important;
-        }
-
-        .recent-status {
-            color: #F8FAFC !important;
+        div[class*="st-key-customer_card_button_"] button p strong,
+        div[class*="st-key-selected_customer_card_button_"] button p strong {
+            color: #FFFFFF !important;
+            font-size: 16px !important;
+            font-weight: 850 !important;
         }
 
         .customer-delete-zone {
@@ -192,6 +217,11 @@ def inject_customer_list_css():
             .customer-list-scroll-note {
                 display: none;
             }
+
+            div[class*="st-key-customer_card_button_"] button,
+            div[class*="st-key-selected_customer_card_button_"] button {
+                min-height: 96px !important;
+            }
         }
         </style>
         """,
@@ -210,6 +240,17 @@ def safe_html(value, default="-"):
         text = default
 
     return html.escape(text)
+
+
+def safe_label(value, default="-"):
+    text = safe_value(value).strip()
+
+    if not text:
+        text = default
+
+    text = re.sub(r"\s+", " ", text)
+
+    return text
 
 
 def only_digits(value):
@@ -440,68 +481,43 @@ def render_customer_filters(customers):
 def render_customer_card(customer, is_selected):
     customer_id = customer["id"]
 
-    raw_name = safe_value(customer.get("name")).strip() or "이름없음"
-    initial = safe_html(raw_name[:1], "?")
-
-    name = safe_html(raw_name, "이름없음")
-    phone = safe_html(
+    raw_name = safe_label(customer.get("name"), "이름없음")
+    phone = safe_label(
         format_phone_with_carrier(
             customer.get("phone"),
             customer.get("carrier"),
         ),
         "연락처 없음",
     )
-    age = safe_html(get_age_from_rrn(customer.get("rrn")), "만 나이 없음")
-    rrn = safe_html(format_mask_rrn(customer.get("rrn")), "-")
-    address = safe_html(short_address(customer.get("address")), "-")
-    status = safe_html(customer.get("status"), "상태 없음")
-    customer_type = safe_html(customer.get("customer_type"), "유형 없음")
+    age = safe_label(get_age_from_rrn(customer.get("rrn")), "만 나이 없음")
+    rrn = safe_label(format_mask_rrn(customer.get("rrn")), "-")
+    address = safe_label(short_address(customer.get("address")), "-")
+    status = safe_label(customer.get("status"), "상태 없음")
+    customer_type = safe_label(customer.get("customer_type"), "유형 없음")
 
-    selected_class = " customer-card-selected" if is_selected else ""
-    badge_class = get_status_class(customer.get("status"))
+    selected_text = "  ✅ 선택됨" if is_selected else ""
 
-    st.markdown(
-        f"""
-        <div class="crm-list-card{selected_class}">
-            <div class="recent-customer-left">
-                <div class="recent-avatar">{initial}</div>
-                <div class="recent-main">
-                    <div class="recent-name">
-                        {name} <span class="crm-muted">({age})</span>
-                    </div>
-                    <div class="recent-meta">{customer_type} · {phone}</div>
-                    <div class="recent-meta">주민번호 {rrn} · {address}</div>
-                </div>
-            </div>
-            <div class="recent-customer-right">
-                <div class="recent-status {badge_class}">{status}</div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    card_label = (
+        f"👤 **{raw_name}** ({age}){selected_text}\n"
+        f"유형 {customer_type} · 연락처 {phone}\n"
+        f"주민번호 {rrn} · 주소 {address}\n"
+        f"진행상태 {status}"
     )
 
-    col_select, col_consult = st.columns([0.5, 0.5])
+    button_key = (
+        f"selected_customer_card_button_{customer_id}"
+        if is_selected
+        else f"customer_card_button_{customer_id}"
+    )
 
-    with col_select:
-        button_label = "선택됨" if is_selected else "상세 / 수정"
-
-        if st.button(
-            button_label,
-            key=f"select_customer_{customer_id}",
-            use_container_width=True,
-        ):
-            st.session_state.selected_customer_id = customer_id
-            st.rerun()
-
-    with col_consult:
-        if st.button(
-            "상담",
-            key=f"go_consult_{customer_id}",
-            use_container_width=True,
-        ):
-            st.session_state.selected_consult_customer_id = customer_id
-            st.switch_page("pages/4_상담이력.py")
+    if st.button(
+        card_label,
+        key=button_key,
+        use_container_width=True,
+        help="클릭하면 오른쪽에 고객 상세 정보가 표시됩니다.",
+    ):
+        st.session_state.selected_customer_id = customer_id
+        st.rerun()
 
 
 def render_customer_detail_form(customer, selected_customer_id, user):
@@ -679,7 +695,7 @@ def render_customer_list_area(filtered_customers):
         render_section_title("고객 목록")
 
         st.caption(
-            "진행상태와 고객유형으로 필터링하고, 고객 카드를 선택하면 오른쪽에서 상세 수정이 가능합니다."
+            "고객 카드를 클릭하면 오른쪽에서 상세 수정이 가능합니다."
         )
 
         st.markdown(
@@ -709,7 +725,7 @@ def render_customer_detail_area(user, selected_customer_id):
     with st.container(border=True):
         if not selected_customer_id:
             render_section_title("상세 정보")
-            st.info("상세보기 또는 수정을 하려면 고객을 선택하세요.")
+            st.info("상세보기 또는 수정을 하려면 고객 카드를 클릭하세요.")
             return
 
         customer = get_customer_by_id(selected_customer_id)
@@ -727,7 +743,7 @@ def customer_list_page(user):
 
     render_page_header(
         "고객 리스트",
-        "등록된 고객을 필터로 정리하고 상세 정보, 상담 이력, 진행 상태를 관리하세요.",
+        "등록된 고객을 필터로 정리하고 고객 카드를 클릭해 상세 정보를 관리하세요.",
     )
 
     customers = get_customers(user)
