@@ -42,15 +42,18 @@ def _get_theme_palette(theme_mode):
             "text_main": "#0F172A",
             "text_sub": "#475569",
             "text_muted": "#64748B",
-            "card_bg": "rgba(255, 255, 255, 0.78)",
-            "card_bg_soft": "rgba(255, 255, 255, 0.66)",
-            "card_border": "rgba(15, 23, 42, 0.10)",
+            "card_bg": "rgba(255, 255, 255, 0.84)",
+            "card_bg_soft": "rgba(255, 255, 255, 0.78)",
+            "card_border": "rgba(15, 23, 42, 0.12)",
             "card_shadow": "0 18px 60px rgba(15, 23, 42, 0.10)",
-            "soft_bg": "rgba(15, 23, 42, 0.035)",
-            "soft_hover": "rgba(91, 140, 255, 0.075)",
-            "input_bg": "rgba(255, 255, 255, 0.92)",
-            "input_border": "rgba(15, 23, 42, 0.12)",
-            "table_bg": "rgba(255, 255, 255, 0.70)",
+            "soft_bg": "rgba(15, 23, 42, 0.040)",
+            "soft_hover": "rgba(91, 140, 255, 0.080)",
+            "input_bg": "#F8FAFC",
+            "input_text": "#0F172A",
+            "input_disabled_bg": "#E2E8F0",
+            "input_disabled_text": "#334155",
+            "input_border": "rgba(15, 23, 42, 0.18)",
+            "table_bg": "rgba(255, 255, 255, 0.78)",
             "dash_border": "rgba(11, 37, 51, 0.50)",
         }
 
@@ -64,15 +67,18 @@ def _get_theme_palette(theme_mode):
         "text_main": "#F8FAFC",
         "text_sub": "#CBD5E1",
         "text_muted": "#94A3B8",
-        "card_bg": "rgba(15, 23, 42, 0.62)",
-        "card_bg_soft": "rgba(15, 23, 42, 0.58)",
-        "card_border": "rgba(255, 255, 255, 0.10)",
+        "card_bg": "rgba(15, 23, 42, 0.72)",
+        "card_bg_soft": "rgba(15, 23, 42, 0.66)",
+        "card_border": "rgba(255, 255, 255, 0.12)",
         "card_shadow": "0 18px 60px rgba(0, 0, 0, 0.22)",
-        "soft_bg": "rgba(255, 255, 255, 0.055)",
-        "soft_hover": "rgba(255, 255, 255, 0.075)",
-        "input_bg": "rgba(255, 255, 255, 0.06)",
-        "input_border": "rgba(255, 255, 255, 0.10)",
-        "table_bg": "rgba(15, 23, 42, 0.42)",
+        "soft_bg": "rgba(255, 255, 255, 0.065)",
+        "soft_hover": "rgba(255, 255, 255, 0.085)",
+        "input_bg": "#F8FAFC",
+        "input_text": "#0F172A",
+        "input_disabled_bg": "#E2E8F0",
+        "input_disabled_text": "#334155",
+        "input_border": "rgba(148, 163, 184, 0.45)",
+        "table_bg": "rgba(15, 23, 42, 0.52)",
         "dash_border": "rgba(11, 37, 51, 0.88)",
     }
 
@@ -231,7 +237,7 @@ def inject_global_css(theme_mode=None):
             font-size: 11px;
             font-weight: 800;
             background: {_rgba(primary, 0.16, "rgba(91, 140, 255, 0.16)")};
-            color: {secondary};
+            color: {palette["text_main"]};
         }}
 
         .sidebar-section-title {{
@@ -277,6 +283,7 @@ def inject_global_css(theme_mode=None):
             backdrop-filter: blur(18px);
             box-shadow: {palette["card_shadow"]};
             margin-bottom: 18px;
+            color: {palette["text_main"]};
         }}
 
         .crm-card-compact {{
@@ -287,6 +294,7 @@ def inject_global_css(theme_mode=None):
             backdrop-filter: blur(18px);
             box-shadow: {palette["card_shadow"]};
             margin-bottom: 14px;
+            color: {palette["text_main"]};
         }}
 
         .crm-content-box {{
@@ -314,6 +322,7 @@ def inject_global_css(theme_mode=None):
             backdrop-filter: blur(18px);
             box-shadow: {palette["card_shadow"]};
             min-height: 112px;
+            color: {palette["text_main"]};
         }}
 
         .metric-label {{
@@ -349,6 +358,7 @@ def inject_global_css(theme_mode=None):
             padding: 17px 18px;
             margin-bottom: 12px;
             transition: 0.15s ease;
+            color: {palette["text_main"]};
         }}
 
         .crm-list-card:hover,
@@ -428,27 +438,27 @@ def inject_global_css(theme_mode=None):
         }}
 
         .status-active {{
-            color: #2563EB;
-            background: rgba(59, 130, 246, 0.14);
-            border-color: rgba(96, 165, 250, 0.28);
+            color: #BFDBFE;
+            background: rgba(59, 130, 246, 0.18);
+            border-color: rgba(96, 165, 250, 0.35);
         }}
 
         .status-done {{
-            color: #16A34A;
-            background: rgba(34, 197, 94, 0.14);
-            border-color: rgba(74, 222, 128, 0.26);
+            color: #BBF7D0;
+            background: rgba(34, 197, 94, 0.18);
+            border-color: rgba(74, 222, 128, 0.35);
         }}
 
         .status-pending {{
-            color: #B45309;
-            background: rgba(245, 158, 11, 0.16);
-            border-color: rgba(251, 191, 36, 0.26);
+            color: #FDE68A;
+            background: rgba(245, 158, 11, 0.18);
+            border-color: rgba(251, 191, 36, 0.35);
         }}
 
         .status-scheduled {{
-            color: #7C3AED;
-            background: rgba(139, 92, 246, 0.14);
-            border-color: rgba(167, 139, 250, 0.28);
+            color: #DDD6FE;
+            background: rgba(139, 92, 246, 0.18);
+            border-color: rgba(167, 139, 250, 0.35);
         }}
 
         .status-default {{
@@ -473,6 +483,7 @@ def inject_global_css(theme_mode=None):
             padding: 24px 28px;
             box-shadow: {palette["card_shadow"]};
             margin: 14px 0 24px 0;
+            color: {palette["text_main"]};
         }}
 
         .home-upcoming-title {{
@@ -593,6 +604,7 @@ def inject_global_css(theme_mode=None):
             border-radius: {card_radius}px;
             padding: 18px;
             box-shadow: {palette["card_shadow"]};
+            color: {palette["text_main"]};
         }}
 
         .home-weekday {{
@@ -755,6 +767,7 @@ def inject_global_css(theme_mode=None):
             border-radius: 18px;
             padding: 15px;
             margin-bottom: 10px;
+            color: {palette["text_main"]};
         }}
 
         .today-action-title {{
@@ -775,8 +788,8 @@ def inject_global_css(theme_mode=None):
         }}
 
         .today-action-badge {{
-            color: #7C3AED;
-            background: rgba(139, 92, 246, 0.14);
+            color: #DDD6FE;
+            background: rgba(139, 92, 246, 0.18);
             border: 1px solid rgba(167, 139, 250, 0.28);
             border-radius: 999px;
             padding: 5px 9px;
@@ -822,56 +835,169 @@ def inject_global_css(theme_mode=None):
             box-shadow: 0 10px 28px {_rgba(primary, 0.18, "rgba(91, 140, 255, 0.18)")};
         }}
 
-        .stTextInput > div > div > input,
+        /* =========================================================
+           전역 가독성 보정
+           흰 박스 안 흰 글씨 문제 방지
+        ========================================================= */
+
+        [data-testid="stVerticalBlockBorderWrapper"] {{
+            background: {palette["card_bg_soft"]} !important;
+            border: 1px solid {palette["card_border"]} !important;
+            border-radius: 22px !important;
+            color: {palette["text_main"]} !important;
+        }}
+
+        [data-testid="stVerticalBlockBorderWrapper"] p,
+        [data-testid="stVerticalBlockBorderWrapper"] span,
+        [data-testid="stVerticalBlockBorderWrapper"] label {{
+            color: {palette["text_sub"]} !important;
+        }}
+
+        [data-testid="stVerticalBlockBorderWrapper"] h1,
+        [data-testid="stVerticalBlockBorderWrapper"] h2,
+        [data-testid="stVerticalBlockBorderWrapper"] h3,
+        [data-testid="stVerticalBlockBorderWrapper"] h4,
+        [data-testid="stVerticalBlockBorderWrapper"] h5,
+        [data-testid="stVerticalBlockBorderWrapper"] h6,
+        [data-testid="stVerticalBlockBorderWrapper"] .crm-section-title {{
+            color: {palette["text_main"]} !important;
+        }}
+
+        [data-testid="stForm"] {{
+            background: {palette["card_bg_soft"]} !important;
+            border: 1px solid {palette["card_border"]} !important;
+            border-radius: 22px !important;
+            padding: 22px !important;
+            box-shadow: {palette["card_shadow"]};
+            color: {palette["text_main"]} !important;
+        }}
+
+        [data-testid="stForm"] label,
+        [data-testid="stForm"] p,
+        [data-testid="stForm"] span {{
+            color: {palette["text_sub"]} !important;
+        }}
+
+        [data-testid="stExpander"] {{
+            background: {palette["card_bg_soft"]} !important;
+            border: 1px solid {palette["card_border"]} !important;
+            border-radius: 18px !important;
+            color: {palette["text_main"]} !important;
+        }}
+
+        [data-testid="stExpander"] p,
+        [data-testid="stExpander"] span,
+        [data-testid="stExpander"] label {{
+            color: {palette["text_sub"]} !important;
+        }}
+
+        [data-testid="stAlert"] {{
+            background: {palette["card_bg_soft"]} !important;
+            border: 1px solid {palette["card_border"]} !important;
+            border-radius: 18px !important;
+            color: {palette["text_main"]} !important;
+        }}
+
+        [data-testid="stAlert"] * {{
+            color: {palette["text_main"]} !important;
+        }}
+
+        .stTextInput input,
         .stTextArea textarea,
-        .stSelectbox div[data-baseweb="select"] > div,
-        .stDateInput div[data-baseweb="input"] input {{
-            background: {palette["input_bg"]};
-            border: 1px solid {palette["input_border"]};
-            border-radius: 14px;
-            color: {palette["text_main"]};
+        .stNumberInput input,
+        .stDateInput input,
+        .stTimeInput input,
+        .stSelectbox div[data-baseweb="select"] > div {{
+            background: {palette["input_bg"]} !important;
+            color: {palette["input_text"]} !important;
+            border: 1px solid {palette["input_border"]} !important;
+            border-radius: 14px !important;
+        }}
+
+        .stTextInput input::placeholder,
+        .stTextArea textarea::placeholder,
+        .stNumberInput input::placeholder {{
+            color: #64748B !important;
+        }}
+
+        .stTextInput input:disabled,
+        .stTextArea textarea:disabled,
+        .stNumberInput input:disabled,
+        .stDateInput input:disabled {{
+            background: {palette["input_disabled_bg"]} !important;
+            color: {palette["input_disabled_text"]} !important;
+            -webkit-text-fill-color: {palette["input_disabled_text"]} !important;
+            opacity: 1 !important;
         }}
 
         .stTextInput > label,
         .stTextArea > label,
+        .stNumberInput > label,
         .stSelectbox > label,
         .stDateInput > label,
+        .stTimeInput > label,
         .stRadio > label,
-        .stCheckbox > label {{
+        .stCheckbox > label,
+        .stFileUploader > label {{
             color: {palette["text_sub"]} !important;
             font-weight: 650;
         }}
 
-        [data-testid="stForm"] {{
-            background: {palette["card_bg_soft"]};
-            border: 1px solid {palette["card_border"]};
-            border-radius: 22px;
-            padding: 22px;
-            box-shadow: {palette["card_shadow"]};
+        div[data-baseweb="select"] span,
+        div[data-baseweb="select"] input,
+        div[data-baseweb="select"] div {{
+            color: {palette["input_text"]} !important;
         }}
 
-        [data-testid="stDataFrame"] {{
-            border-radius: 18px;
-            overflow: hidden;
-            border: 1px solid {palette["card_border"]};
-            background: {palette["table_bg"]};
+        div[data-baseweb="popover"] {{
+            z-index: 999999 !important;
         }}
 
-        [data-testid="stAlert"] {{
-            border-radius: 18px;
-            border: 1px solid {palette["card_border"]};
+        div[data-baseweb="popover"] * {{
+            background-color: #FFFFFF;
+            color: #0F172A !important;
         }}
 
-        [data-testid="stExpander"] {{
-            border: 1px solid {palette["card_border"]};
-            border-radius: 18px;
-            background: {palette["card_bg_soft"]};
+        div[data-baseweb="menu"] {{
+            background: #FFFFFF !important;
+            border: 1px solid rgba(148, 163, 184, 0.35) !important;
+            border-radius: 14px !important;
         }}
 
-        div[data-testid="stVerticalBlockBorderWrapper"] {{
-            border-color: {palette["card_border"]} !important;
-            border-radius: 20px !important;
+        div[data-baseweb="menu"] li,
+        div[data-baseweb="menu"] div,
+        div[data-baseweb="menu"] span {{
+            color: #0F172A !important;
+        }}
+
+        [data-testid="stDataFrame"],
+        [data-testid="stTable"] {{
+            background: {palette["table_bg"]} !important;
+            color: {palette["text_main"]} !important;
+            border: 1px solid {palette["card_border"]} !important;
+            border-radius: 18px !important;
+            overflow: hidden !important;
+        }}
+
+        [data-testid="stDataFrame"] *,
+        [data-testid="stTable"] * {{
+            color: inherit;
+        }}
+
+        .stTabs [data-baseweb="tab-list"] {{
             background: {palette["soft_bg"]} !important;
+            border-radius: 16px !important;
+            padding: 5px !important;
+        }}
+
+        .stTabs [data-baseweb="tab"] {{
+            color: {palette["text_sub"]} !important;
+            border-radius: 12px !important;
+        }}
+
+        .stTabs [aria-selected="true"] {{
+            background: {_rgba(primary, 0.18, "rgba(91, 140, 255, 0.18)")} !important;
+            color: {palette["text_main"]} !important;
         }}
 
         @media screen and (max-width: 1000px) {{
