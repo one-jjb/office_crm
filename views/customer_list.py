@@ -98,21 +98,21 @@ def inject_customer_list_css():
             color: #CBD5E1 !important;
         }
 
-        div[class*="st-key-customer_card_button_"],
-        div[class*="st-key-selected_customer_card_button_"] {
+        div[class*="st-key-customer_card_status_"],
+        div[class*="st-key-selected_customer_card_status_"] {
             margin-bottom: 8px;
         }
 
-        div[class*="st-key-customer_card_button_"] button,
-        div[class*="st-key-selected_customer_card_button_"] button {
+        div[class*="st-key-customer_card_status_"] button,
+        div[class*="st-key-selected_customer_card_status_"] button {
             width: 100% !important;
             height: auto !important;
-            min-height: 74px !important;
+            min-height: 68px !important;
             justify-content: flex-start !important;
             align-items: center !important;
             text-align: left !important;
-            padding: 12px 15px !important;
-            border-radius: 16px !important;
+            padding: 10px 13px !important;
+            border-radius: 15px !important;
             background: rgba(30, 41, 59, 0.92) !important;
             border: 1px solid rgba(148, 163, 184, 0.20) !important;
             box-shadow: none !important;
@@ -120,37 +120,84 @@ def inject_customer_list_css():
             transition: 0.15s ease !important;
         }
 
-        div[class*="st-key-customer_card_button_"] button:hover,
-        div[class*="st-key-selected_customer_card_button_"] button:hover {
+        div[class*="st-key-customer_card_status_"] button:hover,
+        div[class*="st-key-selected_customer_card_status_"] button:hover {
             background: rgba(51, 65, 85, 0.96) !important;
             border-color: rgba(96, 165, 250, 0.56) !important;
             transform: translateY(-1px) !important;
             box-shadow: 0 8px 22px rgba(0, 0, 0, 0.16) !important;
         }
 
-        div[class*="st-key-selected_customer_card_button_"] button {
-            background: rgba(30, 64, 175, 0.56) !important;
-            border-color: rgba(96, 165, 250, 0.88) !important;
-            box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.35) !important;
+        div[class*="st-key-customer_card_status_scheduled_"] button,
+        div[class*="st-key-selected_customer_card_status_scheduled_"] button {
+            background:
+                linear-gradient(90deg, rgba(139, 92, 246, 0.28), rgba(30, 41, 59, 0.92)) !important;
+            border-left: 5px solid #A78BFA !important;
+            border-color: rgba(167, 139, 250, 0.38) !important;
         }
 
-        div[class*="st-key-customer_card_button_"] button p,
-        div[class*="st-key-selected_customer_card_button_"] button p {
+        div[class*="st-key-customer_card_status_active_"] button,
+        div[class*="st-key-selected_customer_card_status_active_"] button {
+            background:
+                linear-gradient(90deg, rgba(59, 130, 246, 0.28), rgba(30, 41, 59, 0.92)) !important;
+            border-left: 5px solid #60A5FA !important;
+            border-color: rgba(96, 165, 250, 0.38) !important;
+        }
+
+        div[class*="st-key-customer_card_status_done_"] button,
+        div[class*="st-key-selected_customer_card_status_done_"] button {
+            background:
+                linear-gradient(90deg, rgba(34, 197, 94, 0.26), rgba(30, 41, 59, 0.92)) !important;
+            border-left: 5px solid #4ADE80 !important;
+            border-color: rgba(74, 222, 128, 0.38) !important;
+        }
+
+        div[class*="st-key-customer_card_status_hold_"] button,
+        div[class*="st-key-selected_customer_card_status_hold_"] button {
+            background:
+                linear-gradient(90deg, rgba(245, 158, 11, 0.26), rgba(30, 41, 59, 0.92)) !important;
+            border-left: 5px solid #FBBF24 !important;
+            border-color: rgba(251, 191, 36, 0.38) !important;
+        }
+
+        div[class*="st-key-customer_card_status_failed_"] button,
+        div[class*="st-key-selected_customer_card_status_failed_"] button {
+            background:
+                linear-gradient(90deg, rgba(239, 68, 68, 0.25), rgba(30, 41, 59, 0.92)) !important;
+            border-left: 5px solid #F87171 !important;
+            border-color: rgba(248, 113, 113, 0.38) !important;
+        }
+
+        div[class*="st-key-customer_card_status_default_"] button,
+        div[class*="st-key-selected_customer_card_status_default_"] button {
+            background:
+                linear-gradient(90deg, rgba(148, 163, 184, 0.20), rgba(30, 41, 59, 0.92)) !important;
+            border-left: 5px solid #94A3B8 !important;
+            border-color: rgba(148, 163, 184, 0.30) !important;
+        }
+
+        div[class*="st-key-selected_customer_card_status_"] button {
+            box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.45) !important;
+            filter: brightness(1.08);
+        }
+
+        div[class*="st-key-customer_card_status_"] button p,
+        div[class*="st-key-selected_customer_card_status_"] button p {
             width: 100% !important;
             color: #CBD5E1 !important;
             white-space: pre-line !important;
-            line-height: 1.45 !important;
-            font-size: 12.8px !important;
+            line-height: 1.38 !important;
+            font-size: 12.5px !important;
             font-weight: 650 !important;
             text-align: left !important;
             margin: 0 !important;
             letter-spacing: -0.02em !important;
         }
 
-        div[class*="st-key-customer_card_button_"] button p strong,
-        div[class*="st-key-selected_customer_card_button_"] button p strong {
+        div[class*="st-key-customer_card_status_"] button p strong,
+        div[class*="st-key-selected_customer_card_status_"] button p strong {
             color: #FFFFFF !important;
-            font-size: 15.5px !important;
+            font-size: 15px !important;
             font-weight: 850 !important;
             letter-spacing: -0.04em !important;
         }
@@ -221,15 +268,15 @@ def inject_customer_list_css():
                 display: none;
             }
 
-            div[class*="st-key-customer_card_button_"] button,
-            div[class*="st-key-selected_customer_card_button_"] button {
-                min-height: 74px !important;
-                padding: 11px 13px !important;
+            div[class*="st-key-customer_card_status_"] button,
+            div[class*="st-key-selected_customer_card_status_"] button {
+                min-height: 68px !important;
+                padding: 10px 12px !important;
             }
 
-            div[class*="st-key-customer_card_button_"] button p,
-            div[class*="st-key-selected_customer_card_button_"] button p {
-                font-size: 12.5px !important;
+            div[class*="st-key-customer_card_status_"] button p,
+            div[class*="st-key-selected_customer_card_status_"] button p {
+                font-size: 12.2px !important;
             }
         }
         </style>
@@ -386,25 +433,46 @@ def short_address(address):
     return text
 
 
-def status_dot(status):
+def status_style_key(status):
     status_text = safe_value(status).strip()
 
     if status_text in ["상담예정", "청약예정"]:
-        return "●"
+        return "scheduled"
 
     if status_text in ["상담중", "분석중"]:
-        return "●"
+        return "active"
 
     if status_text in ["제안완료", "계약완료"]:
-        return "●"
+        return "done"
 
     if status_text == "보류":
-        return "●"
+        return "hold"
 
     if status_text == "실패":
-        return "●"
+        return "failed"
 
-    return "●"
+    return "default"
+
+
+def status_marker(status):
+    status_text = safe_value(status).strip()
+
+    if status_text in ["상담예정", "청약예정"]:
+        return "🟣"
+
+    if status_text in ["상담중", "분석중"]:
+        return "🔵"
+
+    if status_text in ["제안완료", "계약완료"]:
+        return "🟢"
+
+    if status_text == "보류":
+        return "🟡"
+
+    if status_text == "실패":
+        return "🔴"
+
+    return "⚪"
 
 
 def _init_filter_state():
@@ -425,11 +493,14 @@ def _customer_matches_search(customer, keyword):
     if not keyword:
         return True
 
+    birth = format_birth_from_rrn(customer.get("rrn"))
+
     searchable_values = [
         customer.get("name"),
         customer.get("phone"),
         customer.get("carrier"),
         customer.get("rrn"),
+        birth,
         customer.get("address"),
         customer.get("memo"),
         customer.get("status"),
@@ -541,18 +612,19 @@ def render_customer_card(customer, is_selected):
     birth = safe_label(format_birth_from_rrn(customer.get("rrn")), "-")
     address = safe_label(short_address(customer.get("address")), "-")
     status = safe_label(customer.get("status"), "상태 없음")
+    style_key = status_style_key(status)
 
-    selected_text = "  선택됨" if is_selected else ""
+    selected_text = " · 선택됨" if is_selected else ""
 
     card_label = (
-        f"**{name} ({age})**   {phone}        {status_dot(status)} {status}{selected_text}\n"
+        f"**{name} ({age})**   {phone}   {status_marker(status)} {status}{selected_text}\n"
         f"생년월일 {birth}   ·   주소 {address}"
     )
 
     button_key = (
-        f"selected_customer_card_button_{customer_id}"
+        f"selected_customer_card_status_{style_key}_{customer_id}"
         if is_selected
-        else f"customer_card_button_{customer_id}"
+        else f"customer_card_status_{style_key}_{customer_id}"
     )
 
     if st.button(
@@ -816,7 +888,7 @@ def customer_list_page(user):
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    left, right = st.columns([1.12, 0.88])
+    left, right = st.columns([0.88, 1.12])
 
     with left:
         render_customer_list_area(filtered_customers)
