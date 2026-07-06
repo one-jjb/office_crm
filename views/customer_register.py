@@ -6,22 +6,23 @@ from utils.ui import render_card_start, render_card_end, render_section_title
 
 
 STATUS_OPTIONS = [
-    "상담예정",
-    "상담중",
-    "분석중",
-    "제안완료",
-    "청약예정",
-    "계약완료",
-    "보류",
-    "실패",
+    "콜 대기",
+    "콜 부재",
+    "콜 거절",
+    "상담 예정",
+    "상담 중",
+    "설계 중",
+    "증권 전달",
+    "계약 완료",
+    "거절",
+    "기타",
 ]
 
 CUSTOMER_TYPE_OPTIONS = [
-    "신규고객",
-    "기존고객",
+    "DB고객",
     "소개고객",
-    "가망고객",
-    "계약고객",
+    "방문고객",
+    "기고객",
     "기타",
 ]
 
@@ -39,7 +40,7 @@ CARRIER_OPTIONS = [
 def customer_register_page(user):
     render_view_header(
         "고객 등록",
-        "신규 고객의 기본 정보와 상담 진행 상태를 등록하세요.",
+        "고객의 기본 정보와 상담 진행 상태를 등록하세요.",
     )
 
     if "customer_register_nonce" not in st.session_state:
@@ -55,7 +56,6 @@ def customer_register_page(user):
     form_nonce = st.session_state.customer_register_nonce
 
     render_card_start()
-
     render_section_title("기본 정보 입력")
 
     with st.form(f"customer_form_{form_nonce}"):
@@ -140,7 +140,6 @@ def customer_register_page(user):
 
                 st.session_state.customer_register_nonce += 1
                 st.session_state.customer_register_success = True
-
                 st.rerun()
 
     render_card_end()
